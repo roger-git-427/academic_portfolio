@@ -30,13 +30,16 @@ def create_pipeline(**kwargs) -> Pipeline:  # noqa: D401
         node(convert_dates,            "reservations_merged",           "reservations_dates",         name="convert_dates"),
         node(enforce_types_and_basic_filters,
                                         "reservations_dates",           "reservations_typed",         name="types_filters"),
-        node(normalise_city,           "reservations_grouped",          "reservations_city_norm",     name="normalise_city"),
-        node(remove_outliers_percentile,
-                                        dict(
-                                            df="reservations_iqr",
-                                            exclude=["ID_Reserva", "h_res_fec"],
-                                            pct=0.01
-                                        ),
-                                        "reservations_clean",          name="outliers_pct"),
+        node(normalise_city,           "reservations_typed",          "reservations_city_norm",     name="normalise_city"),
+        node(
+            remove_outliers_percentile,
+            inputs=[
+                "reservations_city_norm",
+                "params:outlier_exclude_cols",
+                "params:outlier_pct"
+            ],
+            outputs="reservations_clean",
+            name="outliers_pct"
+        ),
         node(explode_and_sum_rooms,    "reservations_clean",            "rooms_by_date",             name="explode_sum"),
     ])

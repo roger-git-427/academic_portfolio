@@ -3,10 +3,10 @@ from the Kedro defaults. For further information, including these default values
 https://docs.kedro.org/en/stable/kedro_project_setup/settings.html."""
 
 # Instantiated project hooks.
-from tca_pipeline.hooks import SparkHooks  # noqa: E402
+#from tca_pipeline.hooks import SparkHooks  # noqa: E402
 
 # Hooks are executed in a Last-In-First-Out (LIFO) order.
-HOOKS = (SparkHooks(),)
+#HOOKS = (SparkHooks(),)
 
 # Installed plugins for which to disable hook auto-registration.
 # DISABLE_HOOKS_FOR_PLUGINS = ("kedro-viz",)
@@ -23,7 +23,7 @@ HOOKS = (SparkHooks(),)
 # CONF_SOURCE = "conf"
 
 # Class that manages how configuration is loaded.
-from kedro.config import OmegaConfigLoader  # noqa: E402
+"""from kedro.config import OmegaConfigLoader  # noqa: E402
 
 CONFIG_LOADER_CLASS = OmegaConfigLoader
 # Keyword arguments to pass to the `CONFIG_LOADER_CLASS` constructor.
@@ -33,7 +33,7 @@ CONFIG_LOADER_ARGS = {
     "config_patterns": {
         "spark": ["spark*", "spark*/**"],
     }
-}
+} """
 
 # Class that manages Kedro's library components.
 # from kedro.framework.context import KedroContext
