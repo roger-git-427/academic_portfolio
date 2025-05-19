@@ -1,0 +1,57 @@
+# ---------- RAW INPUTS ------------------------------------------------
+raw_reservaciones:
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/reservaciones_tcabdfront2.csv
+
+raw_canales:
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/iar_canales.csv
+
+raw_empresas:
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/iar_empresas.csv
+
+raw_agencias:
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/iar_Agencias.csv
+
+raw_estatus_reservaciones:
+  type: pandas.CSVDataSet
+  filepath: data/01_raw/iar_estatus_reservaciones.csv
+
+# ---------- INTERMEDIATES & OUTPUTS ----------------------------------
+reservations_base:
+  type: pandas.ParquetDataSet
+  filepath: data/02_intermediate/reservations_base.parquet
+
+reservations_merged:
+  type: pandas.ParquetDataSet
+  filepath: data/02_intermediate/reservations_merged.parquet
+
+reservations_dates:
+  type: pandas.ParquetDataSet
+  filepath: data/02_intermediate/reservations_dates.parquet
+
+reservations_typed:
+  type: pandas.ParquetDataSet
+  filepath: data/03_primary/reservations_typed.parquet
+
+reservations_grouped:
+  type: pandas.ParquetDataSet
+  filepath: data/03_primary/reservations_grouped.parquet
+
+reservations_city_norm:
+  type: pandas.ParquetDataSet
+  filepath: data/03_primary/reservations_city_norm.parquet
+
+reservations_iqr:
+  type: pandas.ParquetDataSet
+  filepath: data/04_feature/reservations_iqr.parquet
+
+reservations_clean:
+  type: pandas.ParquetDataSet
+  filepath: data/04_feature/reservations_clean.parquet
+
+rooms_by_date:
+  type: pandas.CSVDataSet
+  filepath: data/05_model_input/rooms_by_date.csv
