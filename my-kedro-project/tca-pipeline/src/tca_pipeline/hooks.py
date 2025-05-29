@@ -1,6 +1,7 @@
 from kedro.framework.hooks import hook_impl
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
+from kedro_mlflow.framework.hooks import MlflowHook
 
 
 class SparkHooks:
@@ -22,3 +23,6 @@ class SparkHooks:
         )
         _spark_session = spark_session_conf.getOrCreate()
         _spark_session.sparkContext.setLogLevel("WARN")
+
+
+mlflow_hook = MlflowHook()

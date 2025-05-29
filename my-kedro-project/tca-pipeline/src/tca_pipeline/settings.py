@@ -2,6 +2,11 @@
 from the Kedro defaults. For further information, including these default values, see
 https://docs.kedro.org/en/stable/kedro_project_setup/settings.html."""
 
+from tca_pipeline.hooks import mlflow_hook
+
+
+HOOKS = (mlflow_hook,)
+
 # Instantiated project hooks.
 #from tca_pipeline.hooks import SparkHooks  # noqa: E402
 
@@ -35,10 +40,16 @@ CONFIG_LOADER_ARGS = {
     }
 } """
 
+
+"""
 # Class that manages Kedro's library components.
-# from kedro.framework.context import KedroContext
-# CONTEXT_CLASS = KedroContext
+from kedro.framework.context import KedroContext
+CONTEXT_CLASS = KedroContext
 
 # Class that manages the Data Catalog.
-# from kedro.io import DataCatalog
-# DATA_CATALOG_CLASS = DataCatalog
+from kedro.io import DataCatalog
+DATA_CATALOG_CLASS = DataCatalog
+
+from kedro_mlflow.framework.hooks import MlflowHook
+HOOKS = (MlflowHook(),)
+"""

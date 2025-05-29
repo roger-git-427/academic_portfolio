@@ -51,3 +51,60 @@ reservations_iqr:
 rooms_by_date:
   type: pandas.ParquetDataset
   filepath: data/05_model_input/rooms_by_date.parquet
+
+
+
+# — MODELING OUTPUTS — 
+df_features:
+  type: pandas.ParquetDataset
+  filepath: data/06_models/df_features.parquet
+
+# Transformer metrics
+transformer_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_MAE
+
+transformer_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_RMSE
+
+transformer_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_WMAPE
+
+# GRU metrics
+gru_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_MAE
+
+gru_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_RMSE
+
+gru_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_WMAPE
+
+# Prophet metrics
+prophet_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_MAE
+
+prophet_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_RMSE
+
+prophet_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_WMAPE
+
+# Models
+transformer_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: transformer_model
+
+gru_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: gru_model
