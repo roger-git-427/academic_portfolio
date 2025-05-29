@@ -1,4 +1,3 @@
-# nodes.py
 import pandas as pd 
 import numpy as np
 import torch
@@ -12,7 +11,38 @@ import mlflow.pytorch
 from prophet import Prophet
 import holidays
 
+# ──────────────────────────────────────────────
+# MODEL DEFINITIONS
+# ──────────────────────────────────────────────
+
+class GRUForecaster(nn.Module):
+    def __init__(self, input_dim: int, hidden_dim: int, num_layers: int):
+        super().__init__()
+        self.gru = nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, 1)
+
+    def forward(self, x):
+        out, _ = self.gru(x)
+        return self.fc(out[:, -1, :])  # last time step
+
+
+class TransformerForecaster(nn.Module):
+    def __init__(self, input_dim: int, d_model: int, nhead: int, num_layers: int):
+        super().__init__()
+        self.input_proj = nn.Linear(input_dim, d_model)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, batch_first=True)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.fc = nn.Linear(d_model, 1)
+
+    def forward(self, x):
+        x_proj = self.input_proj(x)
+        x_enc = self.transformer(x_proj)
+        return self.fc(x_enc[:, -1, :])  # last time step
+
+# ──────────────────────────────────────────────
 # 1️ Feature engineering
+# ──────────────────────────────────────────────
+
 def prepare_features(df_daily: pd.DataFrame) -> pd.DataFrame:
     df = df_daily.copy()
     df = df.rename(columns={'h_tot_hab': 'target_habitaciones'})
@@ -24,17 +54,16 @@ def prepare_features(df_daily: pd.DataFrame) -> pd.DataFrame:
     df["rolling_mean_21"] = df["target_habitaciones"].rolling(21).mean()
     df["rolling_std_30"]  = df["target_habitaciones"].rolling(30).std()
     df["day_of_year"]     = df["Fecha"].dt.dayofyear
-    df["sin_day"]   = np.sin(2 * np.pi * df["day_of_year"] / 365)
-    df["cos_day"]   = np.cos(2 * np.pi * df["day_of_year"] / 365)
+    df["sin_day"] = np.sin(2 * np.pi * df["day_of_year"] / 365)
+    df["cos_day"] = np.cos(2 * np.pi * df["day_of_year"] / 365)
     df["is_weekend"] = df["day_of_week"].isin([5, 6]).astype(int)
     return df
 
-# 2 Imputation & scaling
-def impute_and_scale(
-    df: pd.DataFrame,
-    features: list[str]
-) -> tuple[np.ndarray, list[str]]:
-    # stochastic impute for each lag/rolling column
+# ──────────────────────────────────────────────
+# 2️ Imputation & scaling
+# ──────────────────────────────────────────────
+
+def impute_and_scale(df: pd.DataFrame, features: list[str]) -> tuple[np.ndarray, list[str]]:
     for col in [c for c in features if c.startswith(("lag_", "rolling_"))]:
         np.random.seed(42)
         s = df[col].copy()
@@ -47,18 +76,16 @@ def impute_and_scale(
                     else 0
                 )
         df[col] = s
-    # linear interpolate any remaining
     df = df.interpolate()
-
-    # scale
     scaler = StandardScaler()
     arr = scaler.fit_transform(df[features + ["target_habitaciones"]])
     return arr, features
 
+# ──────────────────────────────────────────────
 # 3️ Create train/test split
-def create_train_test(
-    arr: np.ndarray, params: dict
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+# ──────────────────────────────────────────────
+
+def create_train_test(arr: np.ndarray, params: dict) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     class TSData(Dataset):
         def __init__(self, data, w, h):
             X, y = [], []
@@ -77,14 +104,18 @@ def create_train_test(
     X_test,  y_test  = ds.X[test_idx],  ds.y[test_idx]
     return X_train, y_train, X_test, y_test
 
+# ──────────────────────────────────────────────
+# Métrica WMAPE
+# ──────────────────────────────────────────────
+
 def _compute_wmape(actual, pred):
     return np.sum(np.abs(actual - pred)) / np.sum(np.abs(actual))
 
+# ──────────────────────────────────────────────
 # 4️ Transformer training
+# ──────────────────────────────────────────────
 
-def train_transformer(
-    X_train, y_train, X_test, y_test, cfg: dict
-) -> tuple[float, float, float]:
+def train_transformer(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[float, float, float]:
     with mlflow.start_run(run_name="Transformer", nested=True):
         mlflow.log_params(cfg)
         model = TransformerForecaster(
@@ -99,25 +130,28 @@ def train_transformer(
             model.train()
             for xb, yb in DataLoader(list(zip(X_train, y_train)), batch_size=cfg["batch_size"]):
                 optimizer.zero_grad()
-                loss_fn(model(xb), yb).backward()
+                loss = loss_fn(model(xb), yb)
+                loss.backward()
                 optimizer.step()
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
             for xb, yb in DataLoader(list(zip(X_test, y_test)), batch_size=cfg["batch_size"]):
                 p = model(xb).numpy().flatten()
-                preds.extend(p); acts.extend(yb.numpy().flatten())
+                preds.extend(p)
+                acts.extend(yb.numpy().flatten())
         mae   = mean_absolute_error(acts, preds)
         rmse  = mean_squared_error(acts, preds, squared=False)
         wmape = _compute_wmape(np.array(acts), np.array(preds))
         mlflow.log_metrics({"transformer_MAE": mae, "transformer_RMSE": rmse, "transformer_WMAPE": wmape})
         mlflow.pytorch.log_model(model, "transformer_model")
-    return mae, rmse, wmape
+        return mae, rmse, wmape
 
+# ──────────────────────────────────────────────
 # 5️ GRU training
-def train_gru(
-    X_train, y_train, X_test, y_test, cfg: dict
-) -> tuple[float, float, float]:
+# ──────────────────────────────────────────────
+
+def train_gru(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[float, float, float]:
     with mlflow.start_run(run_name="GRU", nested=True):
         mlflow.log_params(cfg)
         model = GRUForecaster(
@@ -131,22 +165,27 @@ def train_gru(
             model.train()
             for xb, yb in DataLoader(list(zip(X_train, y_train)), batch_size=cfg["batch_size"]):
                 optimizer.zero_grad()
-                loss_fn(model(xb), yb).backward()
+                loss = loss_fn(model(xb), yb)
+                loss.backward()
                 optimizer.step()
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
             for xb, yb in DataLoader(list(zip(X_test, y_test)), batch_size=cfg["batch_size"]):
                 p = model(xb).numpy().flatten()
-                preds.extend(p); acts.extend(yb.numpy().flatten())
+                preds.extend(p)
+                acts.extend(yb.numpy().flatten())
         mae   = mean_absolute_error(acts, preds)
         rmse  = mean_squared_error(acts, preds, squared=False)
         wmape = _compute_wmape(np.array(acts), np.array(preds))
         mlflow.log_metrics({"gru_MAE": mae, "gru_RMSE": rmse, "gru_WMAPE": wmape})
         mlflow.pytorch.log_model(model, "gru_model")
-    return mae, rmse, wmape
+        return mae, rmse, wmape
 
+# ──────────────────────────────────────────────
 # 6️ Prophet training
+# ──────────────────────────────────────────────
+
 def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, float]:
     with mlflow.start_run(run_name="Prophet", nested=True):
         mlflow.log_params(cfg)
@@ -156,11 +195,9 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         mx = holidays.Mexico()
         df_p["is_holiday"] = df_p["ds"].isin(mx).astype(int)
 
-        # Separar train y test
         df_train = df_p.iloc[:-cfg["periods"]]
         df_test  = df_p.iloc[-cfg["periods"]:]
 
-        # Entrenar modelo
         m = Prophet(
             weekly_seasonality=True,
             yearly_seasonality=True,
@@ -170,17 +207,15 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         m.add_regressor("is_holiday")
         m.fit(df_train)
 
-        # Hacer predicción
-        future = df_test[["ds", "is_weekend", "is_holiday"]]  # ya tienen fechas reales
+        future = df_test[["ds", "is_weekend", "is_holiday"]]
         forecast = m.predict(future)
 
-        # Evaluación
         y_true = df_test["y"].values
         y_pred = forecast["yhat"].values
 
         mae   = mean_absolute_error(y_true, y_pred)
         rmse  = mean_squared_error(y_true, y_pred, squared=False)
-        wmape = np.sum(np.abs(y_true - y_pred)) / np.sum(np.abs(y_true))
+        wmape = _compute_wmape(y_true, y_pred)
 
         mlflow.log_metrics({
             "prophet_MAE": mae,
@@ -192,4 +227,3 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         mlflow.log_figure(m.plot_components(forecast), "components.png")
 
         return mae, rmse, wmape
-
