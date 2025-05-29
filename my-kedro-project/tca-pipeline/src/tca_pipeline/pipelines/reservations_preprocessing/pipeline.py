@@ -12,34 +12,30 @@ from .nodes import (
     enforce_types_and_basic_filters,
     normalise_city,
     remove_outliers_percentile,
-    explode_and_sum_rooms,
+    replace_h_num_persons,
+    filtered_df,
+    build_daily_occupancy
 )
 
-
-def create_pipeline(**kwargs) -> Pipeline:  # noqa: D401
+def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([
-        node(select_columns,        "raw_reservaciones",            "reservations_base",          name="select_cols"),
-        node(merge_lookup_tables,      dict(
-                                            reservations="reservations_base",
-                                            canales="raw_canales",
-                                            empresas="raw_empresas",
-                                            agencias="raw_agencias",
-                                            estatus="raw_estatus_reservaciones"
-                                        ),
-                                        "reservations_merged",         name="merge_lookups"),
-        node(convert_dates,            "reservations_merged",           "reservations_dates",         name="convert_dates"),
-        node(enforce_types_and_basic_filters,
-                                        "reservations_dates",           "reservations_typed",         name="types_filters"),
-        node(normalise_city,           "reservations_typed",          "reservations_city_norm",     name="normalise_city"),
-        node(
-            remove_outliers_percentile,
-            inputs=[
-                "reservations_city_norm",
-                "params:outlier_exclude_cols",
-                "params:outlier_pct"
-            ],
-            outputs="reservations_clean",
-            name="outliers_pct"
-        ),
-        node(explode_and_sum_rooms,    "reservations_clean",            "rooms_by_date",             name="explode_sum"),
+        node(select_columns, "raw_reservaciones", "reservations_base", name="select_cols"),
+        node(merge_lookup_tables, dict(
+            reservations="reservations_base",
+            canales="raw_canales",
+            empresas="raw_empresas",
+            agencias="raw_agencias",
+            estatus="raw_estatus_reservaciones"
+        ), "reservations_merged", name="merge_lookups"),
+        node(convert_dates, "reservations_merged", "reservations_dates", name="convert_dates"),
+        node(enforce_types_and_basic_filters, "reservations_dates", "reservations_typed", name="types_filters"),
+        node(normalise_city, "reservations_typed", "reservations_city_norm", name="normalise_city"),
+        node(remove_outliers_percentile, [
+            "reservations_city_norm",
+            "params:outlier_exclude_cols",
+            "params:outlier_pct"
+        ], "reservations_iqr", name="outliers_pct"),
+        node(replace_h_num_persons, "reservations_iqr", "reservations_grouped", name="replace_persons"),
+        node(filtered_df, "reservations_grouped", "reservations_filtered", name="filter_reservations"),
+        node(build_daily_occupancy, "reservations_filtered", "rooms_by_date", name="build_occupancy"),
     ])

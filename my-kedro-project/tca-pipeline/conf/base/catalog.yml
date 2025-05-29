@@ -40,17 +40,13 @@ reservations_grouped:
   type: pandas.ParquetDataset
   filepath: data/03_primary/reservations_grouped.parquet
 
-reservations_city_norm:
+reservations_filtered:
   type: pandas.ParquetDataset
-  filepath: data/03_primary/reservations_city_norm.parquet
+  filepath: data/04_feature/reservations_filtered.parquet
 
 reservations_iqr:
   type: pandas.ParquetDataset
   filepath: data/04_feature/reservations_iqr.parquet
-
-reservations_clean:
-  type: pandas.ParquetDataset
-  filepath: data/04_feature/reservations_clean.parquet
 
 rooms_by_date:
   type: pandas.ParquetDataset

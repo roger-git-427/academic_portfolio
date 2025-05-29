@@ -44,12 +44,11 @@ def merge_lookup_tables(
 # 3.  DATE CONVERSION 
 
 def convert_dates(df: pd.DataFrame) -> pd.DataFrame:
-    fec_cols = [c for c in df.columns if c.endswith("_fec")] + [
-        "Fecha_hoy", "h_fec_lld", "h_fec_reg", "h_fec_sda"
-    ]
+    fec_cols = [col for col in df.columns if '_fec' in col]
     for col in fec_cols:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], format="%Y%m%d", errors="coerce")
+    df['Fecha_hoy'] = pd.to_datetime(df['Fecha_hoy'], errors='coerce')
     return df
 
 
@@ -121,20 +120,74 @@ def remove_outliers_percentile(
         mask &= df[col].between(lo, hi)
     return df[mask].reset_index(drop=True)
 
-# 7.  EXPLODE BY DATE  &  AGGREGATE ROOMS
+# 7. CORRECT NUMBER OF PERSONS
 
-def explode_and_sum_rooms(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.dropna(subset=["h_fec_lld", "h_fec_sda"])
-    df["fecha"] = df.apply(
-        lambda r: pd.date_range(r["h_fec_lld"], r["h_fec_sda"] - pd.Timedelta(days=1)),
-        axis=1,
+def replace_h_num_persons(df: pd.DataFrame) -> pd.DataFrame:
+    required_columns = {'h_num_per', 'h_num_adu', 'h_num_men'}
+    if not required_columns.issubset(df.columns):
+        raise ValueError(f"El DataFrame debe contener las columnas: {required_columns}")
+
+    condition = df['h_num_per'] < (df['h_num_adu'] + df['h_num_men'])
+    df.loc[condition, 'h_num_per'] = df['h_num_adu'] + df['h_num_men']
+
+    print("Se actualizaron los valores de 'h_num_per' donde eran menores que 'h_num_adu + h_num_men'")
+    return df
+
+
+# 8.  FILTER RESERVATIONS
+
+def filtered_df(df: pd.DataFrame) -> pd.DataFrame:
+    # Ensure date columns are datetime
+    df['h_fec_lld'] = pd.to_datetime(df['h_fec_lld'], errors='coerce')
+    df['h_fec_sda'] = pd.to_datetime(df['h_fec_sda'], errors='coerce')
+
+    # Filter out rows where total rooms are zero
+    df = df[df['h_tot_hab'] != 0]
+    print(f"Registros con h_tot_hab != 0: {len(df)}")
+
+    # Drop reservations marked as cancelled with missing check-in or check-out
+    mask_cancelled_missing_dates = (
+        (df['estatus_reservaciones'] == 'RESERVACION CANCELADA') &
+        (df['h_fec_lld'].isna() | df['h_fec_sda'].isna())
     )
-    exploded = df.explode("fecha")
-    out = (
-        exploded[["fecha", "h_tot_hab"]]
-        .groupby("fecha", as_index=False)
-        .sum()
-        .rename(columns={"h_tot_hab": "rooms_reserved"})
-        .sort_values("fecha")
+    df = df[~mask_cancelled_missing_dates]
+    return df
+
+
+# 9. BUILD DAILY OCCUPANCY
+
+def build_daily_occupancy(df: pd.DataFrame) -> pd.DataFrame:
+
+    # Drop rows with missing dates (if any left)
+    df = df.dropna(subset=['h_fec_lld', 'h_fec_sda'])
+
+    # Generate list of stay dates per reservation
+    df['stay_dates'] = df.apply(
+        lambda row: pd.date_range(start=row['h_fec_lld'], end=row['h_fec_sda'] - pd.Timedelta(days=1)),
+        axis=1
     )
-    return out
+
+    # Explode the dataframe so each stay date is a row
+    df_exploded = df.explode('stay_dates')
+
+    # Aggregate by stay date
+    daily_occupancy = df_exploded.groupby('stay_dates')[
+        ['h_tot_hab', 'h_num_per', 'h_num_adu', 'h_num_men']
+    ].sum().reset_index().rename(columns={'stay_dates': 'Fecha'}).sort_values('Fecha')
+
+    # Fill missing dates in the date range
+    full_dates = pd.DataFrame({'Fecha': pd.date_range(daily_occupancy['Fecha'].min(), daily_occupancy['Fecha'].max())})
+    daily_occupancy_filled = full_dates.merge(daily_occupancy, on='Fecha', how='left')
+
+    # Fill NaN with 0 for occupancy columns
+    occupancy_cols = ['h_tot_hab', 'h_num_per', 'h_num_adu', 'h_num_men']
+    daily_occupancy_filled[occupancy_cols] = (
+        daily_occupancy_filled[occupancy_cols].fillna(0).astype(int)
+    )
+
+    # Filter only for 2019
+    daily_occupancy_filled = daily_occupancy_filled[
+        daily_occupancy_filled['Fecha'].dt.year == 2019
+    ].sort_values('Fecha')
+
+    return daily_occupancy_filled
