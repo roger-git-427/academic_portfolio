@@ -10,6 +10,11 @@ import mlflow
 import mlflow.pytorch
 from prophet import Prophet
 import holidays
+import joblib  # add at the top of your script
+import pandas as pd
+import numpy as np
+import os
+from typing import Tuple
 
 # ──────────────────────────────────────────────
 # MODEL DEFINITIONS
@@ -63,23 +68,36 @@ def prepare_features(df_daily: pd.DataFrame) -> pd.DataFrame:
 # 2️ Imputation & scaling
 # ──────────────────────────────────────────────
 
-def impute_and_scale(df: pd.DataFrame, features: list[str]) -> tuple[np.ndarray, list[str]]:
+def impute_and_scale(df: pd.DataFrame, features: list[str]) -> Tuple[np.ndarray, list[str]]:
+    # Imputación de variables con lag o rolling usando ruido gaussiano
     for col in [c for c in features if c.startswith(("lag_", "rolling_"))]:
         np.random.seed(42)
         s = df[col].copy()
         for i in range(len(s)):
             if pd.isna(s.iat[i]):
-                local = s[max(0, i - 7) : i].dropna()
+                local = s[max(0, i - 7):i].dropna()
                 s.iat[i] = (
                     np.random.normal(local.mean(), local.std())
-                    if len(local) > 0
-                    else 0
+                    if len(local) > 0 else 0
                 )
         df[col] = s
+
+    # Interpolación general
     df = df.interpolate()
+
+    # Escalado
     scaler = StandardScaler()
     arr = scaler.fit_transform(df[features + ["target_habitaciones"]])
+
+    # Guardar scaler en disco
+    os.makedirs("data/06_models", exist_ok=True)
+    joblib.dump(scaler, "data/06_models/scaler.pkl")
+
+    # Loggear artifact con MLflow
+    mlflow.log_artifact("data/06_models/scaler.pkl", artifact_path="scaler")
+
     return arr, features
+
 
 # ──────────────────────────────────────────────
 # 3️ Create train/test split

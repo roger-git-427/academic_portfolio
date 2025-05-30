@@ -17,6 +17,7 @@ dependencies = [
   "kedro-docker>=0.3.0",
   "kedro-mlflow>=0.12.0,<0.13.0",
   "kedro-kubeflow==0.8.0",
+  "kedro-datasets[pickle]",
 
   "kedro-datasets[matplotlib-matplotlibwriter,pandas-csvdataset,pandas-exceldataset,pandas-parquetdataset,plotly-jsondataset,plotly-plotlydataset,spark-sparkdataset]>=3.0",
   "kedro-viz>=6.7.0",
