@@ -3,6 +3,10 @@ raw_reservaciones:
   type: pandas.CSVDataset
   filepath: data/01_raw/reservaciones_tcabdfront2.csv
 
+raw_reservaciones_inference:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/reservaciones_inference.csv
+
 raw_canales:
   type: pandas.CSVDataset
   filepath: data/01_raw/iar_canales.csv
