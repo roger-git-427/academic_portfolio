@@ -59,6 +59,13 @@ df_features:
   type: pandas.ParquetDataset
   filepath: data/06_models/df_features.parquet
 
+scaler:
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  artifact_path: scaler
+  dataset:
+    type: kedro_datasets.pickle.PickleDataset
+    filepath: data/06_models/scaler.pkl
+
 # Transformer metrics
 transformer_mae:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
