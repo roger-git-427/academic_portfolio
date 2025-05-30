@@ -39,3 +39,6 @@ modeling:
 
   prophet:
     periods: 45
+
+inference:
+  year_filter: 2020

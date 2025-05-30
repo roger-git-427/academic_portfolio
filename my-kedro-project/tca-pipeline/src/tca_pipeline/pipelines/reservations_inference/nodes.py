@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import torch
@@ -8,7 +7,6 @@ from sklearn.preprocessing import StandardScaler
 from tca_pipeline.pipelines.reservations_data_modeling.nodes import prepare_features
 
 
-from kedro_mlflow.io import models
 from tca_pipeline.pipelines.reservations_preprocessing.nodes import (
     select_columns,
     merge_lookup_tables,
@@ -21,12 +19,6 @@ from tca_pipeline.pipelines.reservations_preprocessing.nodes import (
     build_daily_occupancy,
 )
 
-def load_transformer_model() -> torch.nn.Module:
-    """Load the PyTorch transformer model logged in MLflow."""
-    from kedro_mlflow.io import models
-    # This uses your catalog entry `transformer_model`
-    return models.MlflowModelTrackingDataset().load()
-
 
 def inference_features(
     rooms_by_date: pd.DataFrame,
@@ -38,41 +30,53 @@ def inference_features(
     2) Impute missing lag_*/rolling_* columns with the same logic.
     3) Interpolate remaining NaNs.
     4) APPLY the pre-fitted scaler (no .fit!).
-    5) Return a torch.Tensor for prediction.
+    5) Drop the target column and return a torch.Tensor of shape (seq_len, n_features).
     """
+    print(f"[DEBUG] Step 1 - raw input shape: {rooms_by_date.shape}")
+
     # 1) Feature engineering
     df = prepare_features(rooms_by_date)
+    print(f"[DEBUG] Step 2 - after prepare_features: {df.shape}")
 
-    # 2) Imputation for lag_*/rolling_
+    # 2) Impute lag_/rolling_ columns
     for col in [c for c in features if c.startswith(("lag_", "rolling_"))]:
         np.random.seed(42)
         s = df[col].copy()
         for i in range(len(s)):
             if pd.isna(s.iat[i]):
-                window = s[max(0, i - 7) : i].dropna()
-                s.iat[i] = (
-                    np.random.normal(window.mean(), window.std())
-                    if len(window) > 0
-                    else 0
-                )
+                window = s[max(0, i - 7):i].dropna()
+                s.iat[i] = np.random.normal(window.mean(), window.std()) if len(window) else 0
         df[col] = s
+    print(f"[DEBUG] Step 3 - after imputation: {df[features].shape}")
 
     # 3) Interpolation
     df = df.interpolate()
+    print(f"[DEBUG] Step 4 - after interpolation: {df[features].shape}")
 
     # 4) Scaling
     arr = scaler.transform(df[features + ["target_habitaciones"]])
+    print(f"[DEBUG] Step 5 - after scaling (with target): {arr.shape}")
 
-    # 5) To tensor
-    return torch.tensor(arr, dtype=torch.float32)
+    # 5) Drop the target column
+    X_arr = arr[:, :len(features)]
+    print(f"[DEBUG] Step 6 - final input to model (no target): {X_arr.shape}")
+
+    return torch.tensor(X_arr, dtype=torch.float32)
 
 
 def predict_transformer(
-    features: torch.Tensor, model: torch.nn.Module
+    features: torch.Tensor,
+    model: torch.nn.Module
 ) -> pd.DataFrame:
-    """Run the model and return predictions as a DataFrame."""
+    """
+    features must be shape (seq_len, n_features).
+    We add a batch dimension (1, seq_len, n_features) to run through the model.
+    """
+    print(f"[DEBUG] Input features shape before unsqueeze: {features.shape}")
     model.eval()
     with torch.no_grad():
         X = features.unsqueeze(0)
+        print(f"[DEBUG] Model input shape (after unsqueeze): {X.shape}")
         preds = model(X).cpu().numpy().flatten()
+    print(f"[DEBUG] Predictions shape: {preds.shape}")
     return pd.DataFrame({"prediction": preds})

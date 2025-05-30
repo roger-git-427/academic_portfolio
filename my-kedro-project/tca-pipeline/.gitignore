@@ -167,3 +167,5 @@ mlruns/*
 *.parquet
 *.xlsx
 *.xls
+
+mlflow_runs/**

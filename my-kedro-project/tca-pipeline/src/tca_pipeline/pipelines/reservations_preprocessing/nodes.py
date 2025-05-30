@@ -18,6 +18,7 @@ KEEP_COLS = [
 def select_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Keep only required columns and rename if desired."""
     df = df[KEEP_COLS]
+    print(df.shape)
     return df
 
 # 2.  JOIN LOOK-UP TABLES
@@ -39,6 +40,7 @@ def merge_lookup_tables(
         .merge(estatus[["ID_estatus_reservaciones", "estatus_reservaciones"]],
                                                                on="ID_estatus_reservaciones", how="left")
     )
+    print(df.shape)
     return df
 
 # 3.  DATE CONVERSION 
@@ -49,6 +51,7 @@ def convert_dates(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], format="%Y%m%d", errors="coerce")
     df['Fecha_hoy'] = pd.to_datetime(df['Fecha_hoy'], errors='coerce')
+    print(df.shape)
     return df
 
 
@@ -76,6 +79,7 @@ def enforce_types_and_basic_filters(df: pd.DataFrame) -> pd.DataFrame:
     ]
     for col in num_check:
         df = df[df[col] >= 0]
+    print(df.shape)
     return df.reset_index(drop=True)
 
 # 5.   CITY NORMALISATION
@@ -100,6 +104,7 @@ def normalise_city(df: pd.DataFrame) -> pd.DataFrame:
         .replace(CORRECCIONES_CIUDADES)
     )
     df["Ciudad_Normalizada"] = ser
+    print(df.shape)
     return df
 
 # 6.  OUTLIER REMOVAL
@@ -131,6 +136,7 @@ def replace_h_num_persons(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[condition, 'h_num_per'] = df['h_num_adu'] + df['h_num_men']
 
     print("Se actualizaron los valores de 'h_num_per' donde eran menores que 'h_num_adu + h_num_men'")
+    print(df.shape)
     return df
 
 
@@ -151,43 +157,81 @@ def filtered_df(df: pd.DataFrame) -> pd.DataFrame:
         (df['h_fec_lld'].isna() | df['h_fec_sda'].isna())
     )
     df = df[~mask_cancelled_missing_dates]
+    print(df.shape)
     return df
 
 
 # 9. BUILD DAILY OCCUPANCY
 
-def build_daily_occupancy(df: pd.DataFrame) -> pd.DataFrame:
+def build_daily_occupancy(
+    df: pd.DataFrame, year_filter: int | None = 2019) -> pd.DataFrame:
+    print(f"[DEBUG] df input shape: {df.shape}")
 
-    # Drop rows with missing dates (if any left)
+    # 1) Ensure dates are datetime
+    df['h_fec_lld'] = pd.to_datetime(df['h_fec_lld'], errors='coerce')
+    df['h_fec_sda'] = pd.to_datetime(df['h_fec_sda'], errors='coerce')
+
+    # 2) Drop invalid or missing
     df = df.dropna(subset=['h_fec_lld', 'h_fec_sda'])
+    print(f"[DEBUG] df after dropna shape: {df.shape}")
 
-    # Generate list of stay dates per reservation
+    df = df[df['h_fec_sda'] > df['h_fec_lld']]
+    print(f"[DEBUG] df df['h_fec_sda'] > df['h_fec_lld'] shape: {df.shape}")
+
+    # 3) Build stay_dates as LISTS, not Index objects
     df['stay_dates'] = df.apply(
-        lambda row: pd.date_range(start=row['h_fec_lld'], end=row['h_fec_sda'] - pd.Timedelta(days=1)),
+        lambda row: list(
+            pd.date_range(
+                start=row['h_fec_lld'],
+                end=row['h_fec_sda'] - pd.Timedelta(days=1)
+            )
+        ),
         axis=1
     )
+    print(f"[DEBUG] df stay dates shape: {df.shape}")
 
-    # Explode the dataframe so each stay date is a row
+    # 4) Explode into one date per row
     df_exploded = df.explode('stay_dates')
+    print(f"[DEBUG] df explode shape: {df_exploded.shape}")
 
-    # Aggregate by stay date
-    daily_occupancy = df_exploded.groupby('stay_dates')[
-        ['h_tot_hab', 'h_num_per', 'h_num_adu', 'h_num_men']
-    ].sum().reset_index().rename(columns={'stay_dates': 'Fecha'}).sort_values('Fecha')
-
-    # Fill missing dates in the date range
-    full_dates = pd.DataFrame({'Fecha': pd.date_range(daily_occupancy['Fecha'].min(), daily_occupancy['Fecha'].max())})
-    daily_occupancy_filled = full_dates.merge(daily_occupancy, on='Fecha', how='left')
-
-    # Fill NaN with 0 for occupancy columns
-    occupancy_cols = ['h_tot_hab', 'h_num_per', 'h_num_adu', 'h_num_men']
-    daily_occupancy_filled[occupancy_cols] = (
-        daily_occupancy_filled[occupancy_cols].fillna(0).astype(int)
+    # 5) Aggregate
+    daily_occupancy = (
+        df_exploded
+        .groupby('stay_dates')[['h_tot_hab','h_num_per','h_num_adu','h_num_men']]
+        .sum()
+        .reset_index()
+        .rename(columns={'stay_dates':'Fecha'})
+        .sort_values('Fecha')
     )
+    print(f"[DEBUG] df daily_occupancy shape: {daily_occupancy.shape}")
 
-    # Filter only for 2019
-    daily_occupancy_filled = daily_occupancy_filled[
-        daily_occupancy_filled['Fecha'].dt.year == 2019
-    ].sort_values('Fecha')
+    # 6) Fill gaps
+    full_dates = pd.DataFrame({
+        'Fecha': pd.date_range(
+            start=daily_occupancy['Fecha'].min(),
+            end=daily_occupancy['Fecha'].max()
+        )
+    })
+    print(f"[DEBUG] df full_dates shape: {full_dates.shape}")
 
-    return daily_occupancy_filled
+    daily_occupancy = (
+        full_dates
+        .merge(daily_occupancy, on='Fecha', how='left')
+        .fillna(0)
+    )
+    print(f"[DEBUG] df daily_occupancy shape: {daily_occupancy.shape}")
+
+    for col in ['h_tot_hab','h_num_per','h_num_adu','h_num_men']:
+        daily_occupancy[col] = daily_occupancy[col].astype(int)
+
+    # 7) Optional year filter
+    if year_filter is not None:
+        print(f"[DEBUG] year filter: {year_filter}")
+        daily_occupancy = daily_occupancy[
+            daily_occupancy['Fecha'].dt.year == year_filter
+        ]
+
+    print(f"[DEBUG] df daily_occupancy filter shape: {daily_occupancy.shape}")
+
+    return daily_occupancy
+

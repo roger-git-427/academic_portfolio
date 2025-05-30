@@ -1,4 +1,7 @@
-# ---------- RAW INPUTS ------------------------------------------------
+# conf/base/catalog.yml
+# ──────────────────────────────────────────────────────────────
+# RAW INPUTS
+# ──────────────────────────────────────────────────────────────
 raw_reservaciones:
   type: pandas.CSVDataset
   filepath: data/01_raw/reservaciones_tcabdfront2.csv
@@ -23,7 +26,9 @@ raw_estatus_reservaciones:
   type: pandas.CSVDataset
   filepath: data/01_raw/iar_estatus_reservaciones.csv
 
-# ---------- INTERMEDIATES & OUTPUTS ----------------------------------
+# ──────────────────────────────────────────────────────────────
+# INTERMEDIATES & OUTPUTS
+# ──────────────────────────────────────────────────────────────
 reservations_base:
   type: pandas.CSVDataset
   filepath: data/02_intermediate/reservations_base.csv
@@ -56,21 +61,17 @@ rooms_by_date:
   type: pandas.ParquetDataset
   filepath: data/05_model_input/rooms_by_date.parquet
 
-
-
-# — MODELING OUTPUTS — 
+# ──────────────────────────────────────────────────────────────
+# MODELING OUTPUTS
+# ──────────────────────────────────────────────────────────────
 df_features:
   type: pandas.ParquetDataset
   filepath: data/06_models/df_features.parquet
 
 scaler:
-  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
-  artifact_path: scaler
-  dataset:
-    type: kedro_datasets.pickle.PickleDataset
-    filepath: data/06_models/scaler.pkl
+  type: pickle.PickleDataset
+  filepath: data/06_models/scaler.pkl
 
-# Transformer metrics
 transformer_mae:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: transformer_MAE
@@ -83,7 +84,6 @@ transformer_wmape:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: transformer_WMAPE
 
-# GRU metrics
 gru_mae:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: gru_MAE
@@ -96,7 +96,6 @@ gru_wmape:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: gru_WMAPE
 
-# Prophet metrics
 prophet_mae:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: prophet_MAE
@@ -109,7 +108,7 @@ prophet_wmape:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: prophet_WMAPE
 
-# Models
+# — MLflow‐tracked models (no local pickle) —
 transformer_model:
   type: kedro_mlflow.io.models.MlflowModelTrackingDataset
   flavor: mlflow.pytorch
@@ -119,3 +118,18 @@ gru_model:
   type: kedro_mlflow.io.models.MlflowModelTrackingDataset
   flavor: mlflow.pytorch
   artifact_path: gru_model
+
+# ──────────────────────────────────────────────────────────────
+# LOCAL PICKLES (so you can load without MLflow)
+# ──────────────────────────────────────────────────────────────
+transformer_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/transformer_model.pkl
+
+gru_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/gru_model.pkl
+
+prophet_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/prophet_model.pkl

@@ -1,4 +1,7 @@
-import pandas as pd 
+# src/tca_pipeline/pipelines/data_modeling/nodes.py
+import os
+import pickle
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,9 +11,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import mlflow
 import mlflow.pytorch
+import mlflow.prophet
 from prophet import Prophet
 import holidays
-import joblib  # add at the top of your script
+import pickle
 import pandas as pd
 import numpy as np
 import os
@@ -28,7 +32,7 @@ class GRUForecaster(nn.Module):
 
     def forward(self, x):
         out, _ = self.gru(x)
-        return self.fc(out[:, -1, :])  # last time step
+        return self.fc(out[:, -1, :])
 
 
 class TransformerForecaster(nn.Module):
@@ -42,7 +46,8 @@ class TransformerForecaster(nn.Module):
     def forward(self, x):
         x_proj = self.input_proj(x)
         x_enc = self.transformer(x_proj)
-        return self.fc(x_enc[:, -1, :])  # last time step
+        return self.fc(x_enc[:, -1, :])
+
 
 # ──────────────────────────────────────────────
 # 1️ Feature engineering
@@ -63,6 +68,7 @@ def prepare_features(df_daily: pd.DataFrame) -> pd.DataFrame:
     df["cos_day"] = np.cos(2 * np.pi * df["day_of_year"] / 365)
     df["is_weekend"] = df["day_of_week"].isin([5, 6]).astype(int)
     return df
+
 
 # ──────────────────────────────────────────────
 # 2️ Imputation & scaling
@@ -89,11 +95,9 @@ def impute_and_scale(df: pd.DataFrame, features: list[str]) -> Tuple[np.ndarray,
     scaler = StandardScaler()
     arr = scaler.fit_transform(df[features + ["target_habitaciones"]])
 
-    # Guardar scaler en disco
     os.makedirs("data/06_models", exist_ok=True)
-    joblib.dump(scaler, "data/06_models/scaler.pkl")
-
-    # Loggear artifact con MLflow
+    with open("data/06_models/scaler.pkl", "wb") as f:
+        pickle.dump(scaler, f)
     mlflow.log_artifact("data/06_models/scaler.pkl", artifact_path="scaler")
 
     return arr, features
@@ -122,6 +126,7 @@ def create_train_test(arr: np.ndarray, params: dict) -> tuple[torch.Tensor, torc
     X_test,  y_test  = ds.X[test_idx],  ds.y[test_idx]
     return X_train, y_train, X_test, y_test
 
+
 # ──────────────────────────────────────────────
 # Métrica WMAPE
 # ──────────────────────────────────────────────
@@ -129,11 +134,12 @@ def create_train_test(arr: np.ndarray, params: dict) -> tuple[torch.Tensor, torc
 def _compute_wmape(actual, pred):
     return np.sum(np.abs(actual - pred)) / np.sum(np.abs(actual))
 
+
 # ──────────────────────────────────────────────
 # 4️ Transformer training
 # ──────────────────────────────────────────────
 
-def train_transformer(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[float, float, float]:
+def train_transformer(X_train, y_train, X_test, y_test, cfg: dict):
     with mlflow.start_run(run_name="Transformer", nested=True):
         mlflow.log_params(cfg)
         model = TransformerForecaster(
@@ -151,6 +157,7 @@ def train_transformer(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[floa
                 loss = loss_fn(model(xb), yb)
                 loss.backward()
                 optimizer.step()
+
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
@@ -158,18 +165,34 @@ def train_transformer(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[floa
                 p = model(xb).numpy().flatten()
                 preds.extend(p)
                 acts.extend(yb.numpy().flatten())
+
         mae   = mean_absolute_error(acts, preds)
         rmse  = mean_squared_error(acts, preds, squared=False)
         wmape = _compute_wmape(np.array(acts), np.array(preds))
-        mlflow.log_metrics({"transformer_MAE": mae, "transformer_RMSE": rmse, "transformer_WMAPE": wmape})
+
+        mlflow.log_metrics({
+            "transformer_MAE": mae,
+            "transformer_RMSE": rmse,
+            "transformer_WMAPE": wmape,
+        })
+
+        # 1) Save local pickle
+        os.makedirs("data/06_models", exist_ok=True)
+        path = "data/06_models/transformer_model.pkl"
+        with open(path, "wb") as f:
+            pickle.dump(model, f)
+
+        # 2) Log to MLflow
         mlflow.pytorch.log_model(model, "transformer_model")
+
         return mae, rmse, wmape
+
 
 # ──────────────────────────────────────────────
 # 5️ GRU training
 # ──────────────────────────────────────────────
 
-def train_gru(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[float, float, float]:
+def train_gru(X_train, y_train, X_test, y_test, cfg: dict):
     with mlflow.start_run(run_name="GRU", nested=True):
         mlflow.log_params(cfg)
         model = GRUForecaster(
@@ -186,6 +209,7 @@ def train_gru(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[float, float
                 loss = loss_fn(model(xb), yb)
                 loss.backward()
                 optimizer.step()
+
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
@@ -193,23 +217,39 @@ def train_gru(X_train, y_train, X_test, y_test, cfg: dict) -> tuple[float, float
                 p = model(xb).numpy().flatten()
                 preds.extend(p)
                 acts.extend(yb.numpy().flatten())
+
         mae   = mean_absolute_error(acts, preds)
         rmse  = mean_squared_error(acts, preds, squared=False)
         wmape = _compute_wmape(np.array(acts), np.array(preds))
-        mlflow.log_metrics({"gru_MAE": mae, "gru_RMSE": rmse, "gru_WMAPE": wmape})
+
+        mlflow.log_metrics({
+            "gru_MAE": mae,
+            "gru_RMSE": rmse,
+            "gru_WMAPE": wmape,
+        })
+
+        # 1) Save local pickle
+        os.makedirs("data/06_models", exist_ok=True)
+        path = "data/06_models/gru_model.pkl"
+        with open(path, "wb") as f:
+            pickle.dump(model, f)
+
+        # 2) Log to MLflow
         mlflow.pytorch.log_model(model, "gru_model")
+
         return mae, rmse, wmape
+
 
 # ──────────────────────────────────────────────
 # 6️ Prophet training
 # ──────────────────────────────────────────────
 
-def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, float]:
+def train_prophet(df_features: pd.DataFrame, cfg: dict):
     with mlflow.start_run(run_name="Prophet", nested=True):
         mlflow.log_params(cfg)
 
         df_p = df_features.rename(columns={"Fecha": "ds", "target_habitaciones": "y"})
-        df_p["is_weekend"] = df_p["ds"].dt.weekday.isin([5,6]).astype(int)
+        df_p["is_weekend"] = df_p["ds"].dt.weekday.isin([5, 6]).astype(int)
         mx = holidays.Mexico()
         df_p["is_holiday"] = df_p["ds"].isin(mx).astype(int)
 
@@ -225,7 +265,7 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         m.add_regressor("is_holiday")
         m.fit(df_train)
 
-        future = df_test[["ds", "is_weekend", "is_holiday"]]
+        future  = df_test[["ds", "is_weekend", "is_holiday"]]
         forecast = m.predict(future)
 
         y_true = df_test["y"].values
@@ -238,10 +278,18 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         mlflow.log_metrics({
             "prophet_MAE": mae,
             "prophet_RMSE": rmse,
-            "prophet_WMAPE": wmape
+            "prophet_WMAPE": wmape,
         })
-
         mlflow.log_figure(m.plot(forecast), "forecast.png")
         mlflow.log_figure(m.plot_components(forecast), "components.png")
+
+        # 1) Save local pickle
+        os.makedirs("data/06_models", exist_ok=True)
+        prophet_path = "data/06_models/prophet_model.pkl"
+        with open(prophet_path, "wb") as f:
+            pickle.dump(m, f)
+
+        # 2) Log to MLflow
+        mlflow.prophet.log_model(m, artifact_path="prophet_model")
 
         return mae, rmse, wmape
