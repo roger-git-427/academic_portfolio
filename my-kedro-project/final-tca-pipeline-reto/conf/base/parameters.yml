@@ -1,0 +1,8 @@
+  outlier_exclude_cols:
+    - ID_Reserva
+    - h_res_fec
+  outlier_pct: 0.01
+
+  date_filter:
+    START_DATE: "2019-02-13"
+    END_DATE: "2020-03-08"

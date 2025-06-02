@@ -1,4 +1,9 @@
+
 ipython>=8.10
 jupyterlab>=3.0
-kedro~=0.19.13
 notebook
+kedro~=0.19.13
+kedro-viz>=11.0.2
+holidays>=0.74
+kedro-datasets[pandas-csvdataset,pandas-parquetdataset]>=4.1.0
+kedro-docker>=0.6.2

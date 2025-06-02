@@ -1,8 +1,7 @@
 """Project pipelines."""
-from __future__ import annotations
 
-from kedro.framework.project import find_pipelines
 from kedro.pipeline import Pipeline
+from final_tca_pipeline_reto.pipelines import reservations_data_preprocessing as rdp
 
 
 def register_pipelines() -> dict[str, Pipeline]:
@@ -11,6 +10,6 @@ def register_pipelines() -> dict[str, Pipeline]:
     Returns:
         A mapping from pipeline names to ``Pipeline`` objects.
     """
-    pipelines = find_pipelines()
-    pipelines["__default__"] = sum(pipelines.values())
+    pipelines =  { "__default__": rdp.create_pipeline(),
+        "reservations_preprocessing": rdp.create_pipeline(),}
     return pipelines
