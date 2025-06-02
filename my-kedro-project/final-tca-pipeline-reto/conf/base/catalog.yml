@@ -70,3 +70,72 @@ rooms_by_date:
 df_features:
   type: pandas.ParquetDataset
   filepath: data/04_feature/df_features.parquet
+
+# ──────────────────────────────────────────────────────────────
+# MODELING OUTPUTS
+# ──────────────────────────────────────────────────────────────
+scaler:
+  type: pickle.PickleDataset
+  filepath: data/06_models/scaler.pkl
+
+transformer_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_MAE
+
+transformer_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_RMSE
+
+transformer_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_WMAPE
+
+gru_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_MAE
+
+gru_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_RMSE
+
+gru_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_WMAPE
+
+prophet_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_MAE
+
+prophet_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_RMSE
+
+prophet_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_WMAPE
+
+# — MLflow‐tracked models (no local pickle) —
+transformer_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: transformer_model
+
+gru_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: gru_model
+
+# ──────────────────────────────────────────────────────────────
+# LOCAL PICKLES (so you can load without MLflow)
+# ──────────────────────────────────────────────────────────────
+transformer_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/transformer_model.pkl
+
+gru_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/gru_model.pkl
+
+prophet_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/prophet_model.pkl
