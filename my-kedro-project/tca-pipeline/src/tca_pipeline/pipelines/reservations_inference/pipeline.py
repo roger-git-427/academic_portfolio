@@ -1,7 +1,6 @@
-# src/tca_pipeline/pipelines/reservations_inference/pipeline.py
-
 from kedro.pipeline import pipeline, node
 from . import nodes
+
 
 def create_pipeline(**kwargs):
     return pipeline([
@@ -67,7 +66,11 @@ def create_pipeline(**kwargs):
         # --- Inference nodes ---
         node(
             func=nodes.inference_features,
-            inputs=["rooms_by_date_inf", "scaler", "params:modeling.features"],
+            inputs=[
+                "rooms_by_date_inf",
+                "scaler",
+                "params:modeling.features"
+            ],
             outputs="features_inf",
             name="make_features_inf"
         ),

@@ -48,10 +48,15 @@ class TransformerForecaster(nn.Module):
 
 
 # ──────────────────────────────────────────────
-# 1️ Feature engineering
+# 1️ Feature engineering (with debug prints)
 # ──────────────────────────────────────────────
 
 def prepare_features(df_daily: pd.DataFrame) -> pd.DataFrame:
+    """
+    - Rename target column to 'target_habitaciones'
+    - Create time‐based features and holiday/weekday flags
+    """
+    print(f"[DEBUG][prepare_features] Input df_daily shape: {df_daily.shape}")
     df = df_daily.copy()
     df = df.rename(columns={'h_tot_hab': 'target_habitaciones'})
     df["day_of_week"] = df["Fecha"].dt.dayofweek
@@ -69,44 +74,71 @@ def prepare_features(df_daily: pd.DataFrame) -> pd.DataFrame:
     df["is_weekend"] = df["day_of_week"].isin([5, 6]).astype(int)
     mx_holidays = holidays.Mexico()
     df["is_holiday"] = df["Fecha"].isin(mx_holidays).astype(int)
+
+    print(f"[DEBUG][prepare_features] Output df shape: {df.shape}")
     return df
 
 
 # ──────────────────────────────────────────────
-# 2️ Imputation & scaling
+# 2️ Imputation & scaling (with debug prints)
 # ──────────────────────────────────────────────
 
-def impute_and_scale(df: pd.DataFrame, features: list[str]) -> Tuple[np.ndarray, list[str]]:
-    # Imputación de variables con lag o rolling usando ruido gaussiano
+def impute_and_scale(df: pd.DataFrame, features: list[str]) -> Tuple[np.ndarray, list[str], StandardScaler]:
+    """
+    1) Impute missing lag_/rolling_ columns using Gaussian noise from last 7 observed
+    2) Interpolate any remaining NaNs
+    3) Scale all 'features' + 'target_habitaciones' using StandardScaler
+    4) Save the scaler to disk (pickle)
+    """
+    print(f"[DEBUG][impute_and_scale] Input df shape: {df.shape}")
+    print(f"[DEBUG][impute_and_scale] Features list: {features}")
+
+    # Imputation of lag_*/rolling_ using Gaussian noise
     for col in [c for c in features if c.startswith(("lag_", "rolling_"))]:
         np.random.seed(42)
         s = df[col].copy()
         for i in range(len(s)):
             if pd.isna(s.iat[i]):
-                local = s[max(0, i - 7):i].dropna()
-                s.iat[i] = (
-                    np.random.normal(local.mean(), local.std())
-                    if len(local) > 0 else 0
-                )
+                window = s[max(0, i - 7):i].dropna()
+                s.iat[i] = np.random.normal(window.mean(), window.std()) if len(window) else 0
         df[col] = s
+    print(f"[DEBUG][impute_and_scale] After imputation, subset df[features] shape: {df[features].shape}")
 
-    # Interpolación general
+    # Interpolation for any remaining NaNs
     df = df.interpolate()
+    print(f"[DEBUG][impute_and_scale] After interpolation, subset df[features] shape: {df[features].shape}")
 
-    # Escalado
+    # Scaling
     scaler = StandardScaler()
     arr = scaler.fit_transform(df[features + ["target_habitaciones"]])
+    print(f"[DEBUG][impute_and_scale] Scaled array shape: {arr.shape}")
+
+    # Save the scaler for inference later
     os.makedirs("data/05_model_input", exist_ok=True)
-    joblib.dump(scaler, "data/05_model_input/scaler.pkl")
+    scaler_path = "data/05_model_input/scaler.pkl"
+    with open(scaler_path, "wb") as f:
+        pickle.dump(scaler, f)
+    print(f"[DEBUG][impute_and_scale] Saved scaler (pickle) to: {scaler_path}")
+
     return arr, features, scaler
 
-def inverse_transform_target(scaler, y_scaled: np.ndarray) -> np.ndarray:
+
+def inverse_transform_target(scaler: StandardScaler, y_scaled: np.ndarray) -> np.ndarray:
+    """
+    Given a 1D array y_scaled, reconstruct an array of zeros except y_scaled at last column
+    to call scaler.inverse_transform(dummy) and extract the last column back to original scale.
+    """
     dummy = np.zeros((len(y_scaled), scaler.mean_.shape[0]))
     dummy[:, -1] = y_scaled
     inversed = scaler.inverse_transform(dummy)[:, -1]
     return inversed
 
+
 def extract_train_test_dates(df_features: pd.DataFrame, params: dict) -> tuple[list, list]:
+    """
+    Return two lists: train_dates = all Date values except last 'periods';
+                     test_dates = last 'periods' Date values.
+    """
     periods = params["periods"]
     train_dates = df_features.iloc[:-periods]["Fecha"].tolist()
     test_dates  = df_features.iloc[-periods:]["Fecha"].tolist()
@@ -114,65 +146,95 @@ def extract_train_test_dates(df_features: pd.DataFrame, params: dict) -> tuple[l
 
 
 # ──────────────────────────────────────────────
-# 3️ Create train/test split
+# 3️ Create train/test split (with debug prints)
 # ──────────────────────────────────────────────
 
 def create_train_test(arr: np.ndarray, params: dict) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    1) Turn `arr` into a sequence dataset of window_size/horizon
+    2) Perform a TimeSeriesSplit, take the last split for train/test
+    3) Return: X_train, y_train, X_test, y_test as torch.Tensors
+    """
+    print(f"[DEBUG][create_train_test] Input arr shape: {arr.shape}")
+    window_size = params["window_size"]
+    horizon = params["horizon"]
+    n_splits = params["n_splits"]
+    print(f"[DEBUG][create_train_test] window_size={window_size}, horizon={horizon}, n_splits={n_splits}")
+
     class TSData(Dataset):
         def __init__(self, data, w, h):
             X, y = [], []
             for i in range(len(data) - w - h + 1):
-                X.append(data[i : i + w, :-1])
+                X.append(data[i: i + w, :-1])
                 y.append(data[i + w + h - 1, -1])
             self.X = torch.tensor(np.stack(X), dtype=torch.float32)
             self.y = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
-        def __len__(self): return len(self.X)
-        def __getitem__(self, idx): return self.X[idx], self.y[idx]
 
-    ds = TSData(arr, params["window_size"], params["horizon"])
-    splits = list(TimeSeriesSplit(n_splits=params["n_splits"]).split(ds.X))
+        def __len__(self):
+            return len(self.X)
+
+        def __getitem__(self, idx):
+            return self.X[idx], self.y[idx]
+
+    ds = TSData(arr, window_size, horizon)
+    print(f"[DEBUG][create_train_test] Dataset size: {len(ds)}, each X shape: {ds.X.shape}, each y shape: {ds.y.shape}")
+
+    splits = list(TimeSeriesSplit(n_splits=n_splits).split(ds.X))
     train_idx, test_idx = splits[-1]
     X_train, y_train = ds.X[train_idx], ds.y[train_idx]
     X_test,  y_test  = ds.X[test_idx],  ds.y[test_idx]
+    print(f"[DEBUG][create_train_test] X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+    print(f"[DEBUG][create_train_test] X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
+
     return X_train, y_train, X_test, y_test
 
 
 # ──────────────────────────────────────────────
-# Métrica WMAPE
+# 4️ Transformer training (with debug prints + pickle saving)
 # ──────────────────────────────────────────────
 
 def _compute_wmape(actual, pred):
     return np.sum(np.abs(actual - pred)) / np.sum(np.abs(actual))
 
 
-# ──────────────────────────────────────────────
-# 4️ Transformer training
-# ──────────────────────────────────────────────
-
-def train_transformer(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None) -> tuple[float, float, float]:
+def train_transformer(
+    X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None
+) -> tuple[float, float, float]:
+    """
+    1) Load best Optuna params if they exist
+    2) Train a TransformerForecaster
+    3) Log metrics to MLflow, save the final model with pickle
+    """
     import random
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
     model_type = "transformer"
-
     best_params_path = f"data/07_optuna/{model_type}_best_params.yml"
 
+    # — Load best parameters if available —
     if os.path.exists(best_params_path):
-        print(f"✅ Loading best params from {best_params_path}")
+        print(f"[DEBUG][train_transformer] Loading best params from {best_params_path}")
         with open(best_params_path, "r") as f:
             best_params = yaml.safe_load(f)
-
         cfg.update(best_params)
         cfg["epochs"] = 250
-        print(f"Using BEST params + epochs={cfg['epochs']}")
+        print(f"[DEBUG][train_transformer] Using BEST params + epochs={cfg['epochs']}")
     else:
-        print(f"⚠️ No best params found → using cfg from parameters.yml")
+        print(f"[DEBUG][train_transformer] No best params found → using cfg from parameters.yml")
+
+    # — Debug: print shapes and config —
+    print(f"[DEBUG][train_transformer] X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+    print(f"[DEBUG][train_transformer] X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
+    print(f"[DEBUG][train_transformer] Transformer config: input_dim={cfg['input_dim']}, "
+          f"d_model={cfg['d_model']}, nhead={cfg['nhead']}, num_layers={cfg['num_layers']}, "
+          f"lr={cfg['lr']}, batch_size={cfg['batch_size']}, epochs={cfg['epochs']}")
 
     with mlflow.start_run(run_name="Transformer", nested=True):
         mlflow.log_params(cfg)
 
+        # — Instantiate model —
         model = TransformerForecaster(
             input_dim=cfg["input_dim"],
             d_model=cfg["d_model"],
@@ -180,18 +242,26 @@ def train_transformer(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=
             num_layers=cfg["num_layers"],
         ).to("cpu")
 
+        # — Debug: print model input projection dims —
+        expected_in = model.input_proj.in_features
+        print(f"[DEBUG][train_transformer] Created TransformerForecaster with input_proj.in_features = {expected_in}, "
+              f"output dimension = {model.fc.out_features}")
+
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
         loss_fn = nn.MSELoss()
 
-        for _ in range(cfg["epochs"]):
+        # — Training loop —
+        for epoch in range(cfg["epochs"]):
             model.train()
             for xb, yb in DataLoader(list(zip(X_train, y_train)), batch_size=cfg["batch_size"]):
                 optimizer.zero_grad()
                 loss = loss_fn(model(xb), yb)
                 loss.backward()
                 optimizer.step()
+            if epoch % 50 == 0 or epoch == cfg["epochs"] - 1:
+                print(f"[DEBUG][train_transformer] Epoch {epoch+1}/{cfg['epochs']}: loss={loss.item():.4f}")
 
-        # Eval
+        # — Evaluation —
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
@@ -203,7 +273,7 @@ def train_transformer(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=
         preds = np.array(preds)
         acts = np.array(acts)
 
-        # Metrics
+        # — Inverse transform to original scale —
         preds_orig = inverse_transform_target(scaler, preds)
         acts_orig = inverse_transform_target(scaler, acts)
 
@@ -211,52 +281,62 @@ def train_transformer(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=
         rmse_orig  = mean_squared_error(acts_orig, preds_orig) ** 0.5
         wmape_orig = _compute_wmape(acts_orig, preds_orig)
 
+        print(f"[DEBUG][train_transformer] Evaluation MAE={mae_orig:.4f}, RMSE={rmse_orig:.4f}, WMAPE={wmape_orig:.4f}")
+
         mlflow.log_metrics({
             "transformer_MAE_original": mae_orig,
             "transformer_RMSE_original": rmse_orig,
             "transformer_WMAPE_original": wmape_orig
         })
 
-        # 🚀 Save model
+        # — Save the entire model object via pickle —
         os.makedirs("data/06_models", exist_ok=True)
-        if save_model_path:
-            print(f"✅ Saving model to {save_model_path}")
-            torch.save(model.state_dict(), save_model_path)
-        else:
-            # Default save path
-            torch.save(model.state_dict(), "data/06_models/transformer_best.pt")
+        final_path = save_model_path or "data/06_models/transformer_model.pkl"
+        with open(final_path, "wb") as f:
+            pickle.dump(model, f)
+        print(f"[DEBUG][train_transformer] Saved Transformer model (pickle) to: {final_path}")
 
-        # Log model to MLflow
+        # — Log model artifact to MLflow —
         mlflow.pytorch.log_model(model, "transformer_model")
 
         return mae_orig, rmse_orig, wmape_orig
 
 
 # ──────────────────────────────────────────────
-# 5️ GRU training
+# 5️ GRU training (with debug prints + pickle saving)
 # ──────────────────────────────────────────────
 
-def train_gru(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None) -> tuple[float, float, float]:
+def train_gru(
+    X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None
+) -> tuple[float, float, float]:
+    """
+    1) Load best Optuna params if they exist
+    2) Train a GRUForecaster
+    3) Log metrics to MLflow, save the final model with pickle
+    """
     import random
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    
-     # Determine model type (in case save_model_path is None → fallback to name)
-    model_type = "gru"
 
+    model_type = "gru"
     best_params_path = f"data/07_optuna/{model_type}_best_params.yml"
 
     if os.path.exists(best_params_path):
-        print(f"✅ Loading best params from {best_params_path}")
+        print(f"[DEBUG][train_gru] Loading best params from {best_params_path}")
         with open(best_params_path, "r") as f:
             best_params = yaml.safe_load(f)
-
         cfg.update(best_params)
         cfg["epochs"] = 250
-        print(f"Using BEST params + epochs={cfg['epochs']}  ")
+        print(f"[DEBUG][train_gru] Using BEST params + epochs={cfg['epochs']}")
     else:
-        print(f"⚠️ No best params found → using cfg from parameters.yml")
+        print(f"[DEBUG][train_gru] No best params found → using cfg from parameters.yml")
+
+    print(f"[DEBUG][train_gru] X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+    print(f"[DEBUG][train_gru] X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
+    print(f"[DEBUG][train_gru] GRU config: input_dim={cfg['input_dim']}, hidden_dim={cfg['hidden_dim']}, "
+          f"num_layers={cfg['num_layers']}, lr={cfg['lr']}, batch_size={cfg['batch_size']}, "
+          f"epochs={cfg['epochs']}")
 
     with mlflow.start_run(run_name="GRU", nested=True):
         mlflow.log_params(cfg)
@@ -267,18 +347,24 @@ def train_gru(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save
             num_layers=cfg["num_layers"],
         ).to("cpu")
 
+        # — Debug: Print the GRU’s expected input dimension (for sanity) —
+        expected_in = model.gru.input_size if hasattr(model.gru, "input_size") else cfg["input_dim"]
+        print(f"[DEBUG][train_gru] Created GRUForecaster with input_size = {expected_in}, "
+              f"hidden_dim = {cfg['hidden_dim']}")
+
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
         loss_fn = nn.MSELoss()
 
-        for _ in range(cfg["epochs"]):
+        for epoch in range(cfg["epochs"]):
             model.train()
             for xb, yb in DataLoader(list(zip(X_train, y_train)), batch_size=cfg["batch_size"]):
                 optimizer.zero_grad()
                 loss = loss_fn(model(xb), yb)
                 loss.backward()
                 optimizer.step()
+            if epoch % 50 == 0 or epoch == cfg["epochs"] - 1:
+                print(f"[DEBUG][train_gru] Epoch {epoch+1}/{cfg['epochs']}: loss={loss.item():.4f}")
 
-        # Eval
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
@@ -290,7 +376,6 @@ def train_gru(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save
         preds = np.array(preds)
         acts = np.array(acts)
 
-        # Inverse transform
         preds_orig = inverse_transform_target(scaler, preds)
         acts_orig = inverse_transform_target(scaler, acts)
 
@@ -298,46 +383,52 @@ def train_gru(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save
         rmse_orig  = mean_squared_error(acts_orig, preds_orig) ** 0.5
         wmape_orig = _compute_wmape(acts_orig, preds_orig)
 
+        print(f"[DEBUG][train_gru] Evaluation MAE={mae_orig:.4f}, RMSE={rmse_orig:.4f}, WMAPE={wmape_orig:.4f}")
+
         mlflow.log_metrics({
             "gru_MAE_original": mae_orig,
             "gru_RMSE_original": rmse_orig,
             "gru_WMAPE_original": wmape_orig
         })
 
-        # 🚀 Save model
+        # — Save the entire GRU model object via pickle —
         os.makedirs("data/06_models", exist_ok=True)
-        if save_model_path:
-            print(f"✅ Saving model to {save_model_path}")
-            torch.save(model.state_dict(), save_model_path)
-        else:
-            # Default save path
-            torch.save(model.state_dict(), "data/06_models/gru_best.pt")
+        final_path = save_model_path or "data/06_models/gru_model.pkl"
+        with open(final_path, "wb") as f:
+            pickle.dump(model, f)
+        print(f"[DEBUG][train_gru] Saved GRU model (pickle) to: {final_path}")
 
-        # Log model to MLflow
         mlflow.pytorch.log_model(model, "gru_model")
 
         return mae_orig, rmse_orig, wmape_orig
 
 
+# ──────────────────────────────────────────────
+# 6️ Prophet training (with debug prints)
+# ──────────────────────────────────────────────
 
-# ──────────────────────────────────────────────
-# 6️ Prophet training
-# ──────────────────────────────────────────────
 def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, float]:
+    """
+    1) Train a Prophet model (with external regressors)
+    2) Log metrics to MLflow, save the final model via pickle
+    """
     import random
     random.seed(20)
     np.random.seed(20)
     torch.manual_seed(20)
-    
+
+    print(f"[DEBUG][train_prophet] Input df_features shape: {df_features.shape}")
+    print(f"[DEBUG][train_prophet] Prophet config (periods): {cfg['periods']}")
+
     with mlflow.start_run(run_name="Prophet", nested=True):
         mlflow.log_params(cfg)
 
+        # Prepare data for Prophet
         df_p = df_features.rename(columns={"Fecha": "ds", "target_habitaciones": "y"})
         df_p["is_weekend"] = df_p["ds"].dt.weekday.isin([5, 6]).astype(int)
         mx = holidays.Mexico()
         df_p["is_holiday"] = df_p["ds"].isin(mx).astype(int)
 
-        # 💥 Add lag & rolling features
         regressors = [
             "is_weekend",
             "is_holiday",
@@ -347,13 +438,17 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
             "rolling_mean_21",
             "rolling_std_30",
         ]
+        print(f"[DEBUG][train_prophet] Regressors used: {regressors}")
 
         df_train = df_p.iloc[:-cfg["periods"]].copy()
         df_test  = df_p.iloc[-cfg["periods"]:].copy()
         df_train = df_train.dropna(subset=regressors + ["y", "ds"]).copy()
         df_test  = df_test.dropna(subset=regressors + ["y", "ds"]).copy()
 
-        # Initialize Prophet
+        print(f"[DEBUG][train_prophet] df_train shape (after dropna): {df_train.shape}")
+        print(f"[DEBUG][train_prophet] df_test shape (after dropna): {df_test.shape}")
+
+        # Initialize and add regressors
         m = Prophet(
             weekly_seasonality=True,
             yearly_seasonality=True,
@@ -364,12 +459,14 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
 
         # Fit model
         m.fit(df_train)
+        print(f"[DEBUG][train_prophet] Completed Prophet.fit()")
 
-        # Prepare future dataframe
+        # Prepare future DataFrame and predict
         future = df_test[["ds"] + regressors]
         forecast = m.predict(future)
+        print(f"[DEBUG][train_prophet] Completed Prophet.predict(), forecast shape: {forecast.shape}")
 
-        # Metrics
+        # Compute metrics
         y_true = df_test["y"].values
         y_pred = forecast["yhat"].values
 
@@ -377,27 +474,33 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         rmse  = mean_squared_error(y_true, y_pred) ** 0.5
         wmape = _compute_wmape(y_true, y_pred)
 
-        # Log metrics
+        print(f"[DEBUG][train_prophet] Evaluation MAE={mae:.4f}, RMSE={rmse:.4f}, WMAPE={wmape:.4f}")
+
         mlflow.log_metrics({
             "prophet_MAE": mae,
             "prophet_RMSE": rmse,
             "prophet_WMAPE": wmape,
         })
+
+        # Log figures to MLflow
         mlflow.log_figure(m.plot(forecast), "forecast.png")
         mlflow.log_figure(m.plot_components(forecast), "components.png")
 
-        # Save model
+        # Save Prophet model via pickle
         os.makedirs("data/06_models", exist_ok=True)
         prophet_path = "data/06_models/prophet_model.pkl"
         with open(prophet_path, "wb") as f:
             pickle.dump(m, f)
+        print(f"[DEBUG][train_prophet] Saved Prophet model (pickle) to: {prophet_path}")
 
-        # Log Prophet model
         mlflow.prophet.log_model(m, artifact_path="prophet_model")
 
-        # 🟢 THIS is the line that was missing!
         return mae, rmse, wmape
-    
+
+
+# ──────────────────────────────────────────────
+# 7️ Optional helper for running best‐params training (unchanged)
+# ──────────────────────────────────────────────
 
 def run_best_params_training(
     X_train, y_train, X_test, y_test, cfg, scaler,
@@ -408,8 +511,7 @@ def run_best_params_training(
     seed=42,
     model_type="transformer"
 ):
-    # 1️⃣ First run: preview training
-    print(f"🚀 Running PREVIEW training for {preview_epochs} epochs...")
+    print(f"[DEBUG][run_best_params_training] Starting preview run for {model_type}")
     cfg_preview = cfg.copy()
     cfg_preview["epochs"] = preview_epochs
 
@@ -428,8 +530,7 @@ def run_best_params_training(
     else:
         raise ValueError(f"Unknown model_type: {model_type}")
 
-    # 2️⃣ Final run: 100 epochs
-    print(f"🚀 Running FINAL training for {final_epochs} epochs...")
+    print(f"[DEBUG][run_best_params_training] Starting final run for {model_type}")
     cfg_final = cfg.copy()
     cfg_final["epochs"] = final_epochs
 
@@ -448,6 +549,4 @@ def run_best_params_training(
     else:
         raise ValueError(f"Unknown model_type: {model_type}")
 
-    # 🚀 Return final metrics so retrain_best.py can log them!
     return mae, rmse, wmape
-
