@@ -13,6 +13,7 @@ dependencies = [
     "notebook",
     "kedro~=0.19.13",
     "kedro-viz>=11.0.2",
+    "holidays>=0.74",
 ]
 
 [project.scripts]
@@ -80,3 +81,6 @@ select = [
     "T201", # Print Statement
 ]
 ignore = ["E501"]  # Ruff format takes care of line-too-long
+
+[tool.kedro_telemetry]
+project_id = "f28095f50bf447a0a9eeb281d7dfda58"
