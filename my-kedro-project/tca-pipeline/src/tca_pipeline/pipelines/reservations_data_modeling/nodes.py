@@ -16,11 +16,32 @@ import mlflow.prophet
 from prophet import Prophet
 import holidays
 from typing import Tuple
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+import matplotlib.pyplot as plt
+# from neuralforecast.core import NeuralForecast
+# from neuralforecast.models import TimesNet
+# from neuralforecast.losses.pytorch import MAE, MSE
 
 
 # ──────────────────────────────────────────────
 # MODEL DEFINITIONS
 # ──────────────────────────────────────────────
+
+
+def plot_forecast_vs_actual(y_true, y_pred, title="Forecast vs Actual", save_path=None):
+    plt.figure(figsize=(12, 6))
+    plt.plot(y_true, label="Actual", linewidth=2)
+    plt.plot(y_pred, label="Forecast", linewidth=2)
+    plt.title(title)
+    plt.xlabel("Time Step")
+    plt.ylabel("Target")
+    plt.legend()
+    plt.grid(True)
+    
+    if save_path:
+        plt.savefig(save_path)
+    plt.close()
+
 
 class GRUForecaster(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int, num_layers: int):
@@ -46,6 +67,18 @@ class TransformerForecaster(nn.Module):
         x_enc = self.transformer(x_proj)
         return self.fc(x_enc[:, -1, :])
 
+class LSTMForecaster(nn.Module):
+    def __init__(self, input_dim: int, hidden_dim: int, num_layers: int):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, 1)
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        return self.fc(out[:, -1, :])
+
+
+
 
 # ──────────────────────────────────────────────
 # 1️ Feature engineering (with debug prints)
@@ -64,10 +97,14 @@ def prepare_features(df_daily: pd.DataFrame) -> pd.DataFrame:
     df["lag_1"] = df["target_habitaciones"].shift(1)
     df["lag_7"]       = df["target_habitaciones"].shift(7)
     df["lag_30"]      = df["target_habitaciones"].shift(30)
+    df["lag_28"] = df["target_habitaciones"].shift(28)
+    df["lag_364"] = df["target_habitaciones"].shift(364)  # ~ yearly seasonality
     df["rolling_mean_7"]  = df["target_habitaciones"].rolling(7).mean()
     df["rolling_trend_7"] = df["target_habitaciones"] - df["rolling_mean_7"]
     df["rolling_mean_21"] = df["target_habitaciones"].rolling(21).mean()
     df["rolling_std_30"]  = df["target_habitaciones"].rolling(30).std()
+    df["rolling_std_7"] = df["target_habitaciones"].rolling(7).std()
+    df["rolling_std_14"] = df["target_habitaciones"].rolling(14).std()
     df["day_of_year"]     = df["Fecha"].dt.dayofyear
     df["sin_day"] = np.sin(2 * np.pi * df["day_of_year"] / 365)
     df["cos_day"] = np.cos(2 * np.pi * df["day_of_year"] / 365)
@@ -277,8 +314,8 @@ def train_transformer(
         preds_orig = inverse_transform_target(scaler, preds)
         acts_orig = inverse_transform_target(scaler, acts)
 
-        mae_orig   = mean_absolute_error(acts_orig, preds_orig)
-        rmse_orig  = mean_squared_error(acts_orig, preds_orig) ** 0.5
+        mae_orig = mean_absolute_error(acts_orig, preds_orig)
+        rmse_orig = mean_squared_error(acts_orig, preds_orig) ** 0.5
         wmape_orig = _compute_wmape(acts_orig, preds_orig)
 
         print(f"[DEBUG][train_transformer] Evaluation MAE={mae_orig:.4f}, RMSE={rmse_orig:.4f}, WMAPE={wmape_orig:.4f}")
@@ -299,7 +336,13 @@ def train_transformer(
         # — Log model artifact to MLflow —
         mlflow.pytorch.log_model(model, "transformer_model")
 
+        # Plot
+        plot_path = "data/06_models/transformer_forecast.png"
+        plot_forecast_vs_actual(acts_orig, preds_orig, title="Transformer Forecast vs Actual", save_path=plot_path)
+        mlflow.log_artifact(plot_path)
+
         return mae_orig, rmse_orig, wmape_orig
+
 
 
 # ──────────────────────────────────────────────
@@ -318,6 +361,7 @@ def train_gru(
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+
 
     model_type = "gru"
     best_params_path = f"data/07_optuna/{model_type}_best_params.yml"
@@ -379,8 +423,8 @@ def train_gru(
         preds_orig = inverse_transform_target(scaler, preds)
         acts_orig = inverse_transform_target(scaler, acts)
 
-        mae_orig   = mean_absolute_error(acts_orig, preds_orig)
-        rmse_orig  = mean_squared_error(acts_orig, preds_orig) ** 0.5
+        mae_orig = mean_absolute_error(acts_orig, preds_orig)
+        rmse_orig = mean_squared_error(acts_orig, preds_orig) ** 0.5
         wmape_orig = _compute_wmape(acts_orig, preds_orig)
 
         print(f"[DEBUG][train_gru] Evaluation MAE={mae_orig:.4f}, RMSE={rmse_orig:.4f}, WMAPE={wmape_orig:.4f}")
@@ -391,14 +435,113 @@ def train_gru(
             "gru_WMAPE_original": wmape_orig
         })
 
-        # — Save the entire GRU model object via pickle —
+        # 🚀 Save model
         os.makedirs("data/06_models", exist_ok=True)
-        final_path = save_model_path or "data/06_models/gru_model.pkl"
-        with open(final_path, "wb") as f:
-            pickle.dump(model, f)
-        print(f"[DEBUG][train_gru] Saved GRU model (pickle) to: {final_path}")
+        if save_model_path:
+            print(f"✅ Saving model to {save_model_path}")
+            torch.save(model.state_dict(), save_model_path)
+        else:
+            # Default save path
+            torch.save(model.state_dict(), "data/06_models/gru_best.pt")
 
+        # Log model to MLflow
         mlflow.pytorch.log_model(model, "gru_model")
+
+        # Plot
+        plot_path = "data/06_models/gru_forecast.png"
+        plot_forecast_vs_actual(acts_orig, preds_orig, title="GRU Forecast vs Actual", save_path=plot_path)
+        mlflow.log_artifact(plot_path)
+
+        return mae_orig, rmse_orig, wmape_orig
+
+def train_lstm(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None) -> tuple[float, float, float]:
+    import random
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    model_type = "lstm"
+    best_params_path = f"data/07_optuna/{model_type}_best_params.yml"
+
+    if os.path.exists(best_params_path):
+        print(f"✅ Loading best params from {best_params_path}")
+        with open(best_params_path, "r") as f:
+            best_params = yaml.safe_load(f)
+
+        cfg.update(best_params)
+        cfg["epochs"] = 250
+        print(f"Using BEST params + epochs={cfg['epochs']}")
+    else:
+        print(f"⚠️ No best params found → using cfg from parameters.yml")
+
+    cfg["input_dim"] = X_train.shape[-1]
+    print(f"👉 LSTM input_dim = {cfg['input_dim']}")
+
+    with mlflow.start_run(run_name="LSTM", nested=True):
+        mlflow.log_params(cfg)
+
+        model = LSTMForecaster(
+            input_dim=cfg["input_dim"],
+            hidden_dim=cfg["hidden_dim"],
+            num_layers=cfg["num_layers"],
+        ).to("cpu")
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
+        loss_fn = nn.MSELoss()
+
+        for _ in range(cfg["epochs"]):
+            model.train()
+            for xb, yb in DataLoader(list(zip(X_train, y_train)), batch_size=cfg["batch_size"]):
+                optimizer.zero_grad()
+                loss = loss_fn(model(xb), yb)
+                loss.backward()
+                optimizer.step()
+
+        # Eval
+        model.eval()
+        preds, acts = [], []
+        with torch.no_grad():
+            for xb, yb in DataLoader(list(zip(X_test, y_test)), batch_size=cfg["batch_size"]):
+                p = model(xb).numpy().flatten()
+                preds.extend(p)
+                acts.extend(yb.numpy().flatten())
+
+        preds = np.array(preds)
+        acts = np.array(acts)
+
+        preds_orig = inverse_transform_target(scaler, preds)
+        acts_orig = inverse_transform_target(scaler, acts)
+
+        mae_orig = mean_absolute_error(acts_orig, preds_orig)
+        rmse_orig = mean_squared_error(acts_orig, preds_orig) ** 0.5
+        wmape_orig = _compute_wmape(acts_orig, preds_orig)
+
+        mlflow.log_metrics({
+            "lstm_MAE_original": mae_orig,
+            "lstm_RMSE_original": rmse_orig,
+            "lstm_WMAPE_original": wmape_orig
+        })
+
+        os.makedirs("data/06_models", exist_ok=True)
+        if save_model_path:
+            print(f"✅ Saving model to {save_model_path}")
+            torch.save(model.state_dict(), save_model_path)
+            pickle_path = save_model_path.replace(".pt", ".pkl")
+            with open(pickle_path, "wb") as f:
+                pickle.dump(model, f)
+        else:
+            default_pt_path = "data/06_models/lstm_best.pt"
+            default_pkl_path = "data/06_models/lstm_best.pkl"
+            torch.save(model.state_dict(), default_pt_path)
+            with open(default_pkl_path, "wb") as f:
+                pickle.dump(model, f)
+
+        mlflow.pytorch.log_model(model, "lstm_model")
+
+        # Plot
+        plot_path = "data/06_models/lstm_forecast.png"
+        plot_forecast_vs_actual(acts_orig, preds_orig, title="LSTM Forecast vs Actual", save_path=plot_path)
+        mlflow.log_artifact(plot_path)
 
         return mae_orig, rmse_orig, wmape_orig
 
@@ -452,8 +595,10 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         m = Prophet(
             weekly_seasonality=True,
             yearly_seasonality=True,
-            daily_seasonality=False
+            daily_seasonality=False,
+            seasonality_mode='multiplicative'
         )
+
         for reg in regressors:
             m.add_regressor(reg)
 
@@ -483,8 +628,15 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         })
 
         # Log figures to MLflow
-        mlflow.log_figure(m.plot(forecast), "forecast.png")
-        mlflow.log_figure(m.plot_components(forecast), "components.png")
+
+        # Custom forecast plot — consistent with GRU / LSTM / SARIMA
+        plot_path = "data/06_models/prophet_forecast.png"
+        plot_forecast_vs_actual(y_true, y_pred, title="Prophet Forecast vs Actual", save_path=plot_path)
+        mlflow.log_artifact(plot_path)
+
+        # Keep components plot if you want
+        mlflow.log_figure(m.plot_components(forecast), "prophet_components.png")
+
 
         # Save Prophet model via pickle
         os.makedirs("data/06_models", exist_ok=True)
@@ -496,6 +648,72 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         mlflow.prophet.log_model(m, artifact_path="prophet_model")
 
         return mae, rmse, wmape
+# ──────────────────────────────────────────────
+# 7️ SARIMA training
+# ──────────────────────────────────────────────
+def train_sarima(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, float]:
+
+    # 👉 Prepare series
+    df_p = df_features.rename(columns={"Fecha": "ds", "target_habitaciones": "y"})
+    df_p = df_p.set_index("ds").asfreq("D")  # Ensure daily frequency
+    df_p = df_p.fillna(method="ffill")  # Fill missing with forward fill
+
+    series = df_p["y"]
+
+    # 👉 Split train/test
+    train = series.iloc[:-cfg["periods"]]
+    test  = series.iloc[-cfg["periods"]:]
+
+    # 👉 Build SARIMA model
+    print(f"✅ Training SARIMA with order={cfg['order']} and seasonal_order={cfg['seasonal_order']}")
+    model = SARIMAX(
+        train,
+        order=tuple(cfg["order"]),
+        seasonal_order=tuple(cfg["seasonal_order"]),
+        enforce_stationarity=False,
+        enforce_invertibility=False
+    )
+    sarima_result = model.fit(disp=False)
+
+    # yForecast
+    forecast = sarima_result.forecast(steps=cfg["periods"])
+
+    #  Metrics
+    y_true = test.values
+    y_pred = forecast.values
+
+    mae   = mean_absolute_error(y_true, y_pred)
+    rmse  = mean_squared_error(y_true, y_pred) ** 0.5
+    wmape = _compute_wmape(y_true, y_pred)
+
+    # Log to MLflow
+    with mlflow.start_run(run_name="SARIMA", nested=True):
+        mlflow.log_params({
+            "order": cfg["order"],
+            "seasonal_order": cfg["seasonal_order"],
+            "periods": cfg["periods"]
+        })
+        mlflow.log_metrics({
+            "sarima_MAE": mae,
+            "sarima_RMSE": rmse,
+            "sarima_WMAPE": wmape
+        })
+
+        # Save SARIMA model
+        os.makedirs("data/06_models", exist_ok=True)
+        sarima_path = "data/06_models/sarima_model.pkl"
+        with open(sarima_path, "wb") as f:
+            pickle.dump(sarima_result, f)
+        print(f"✅ Saved SARIMA model to {sarima_path}")
+
+    print(f"✅ SARIMA → MAE: {mae:.2f}, RMSE: {rmse:.2f}, WMAPE: {wmape:.4f}")
+    plot_path = "data/06_models/sarima_forecast.png"
+    plot_forecast_vs_actual(y_true, y_pred, title="SARIMA Forecast vs Actual", save_path=plot_path)
+    mlflow.log_artifact(plot_path)
+
+
+    return mae, rmse, wmape
+ 
 
 
 # ──────────────────────────────────────────────
@@ -505,11 +723,11 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
 def run_best_params_training(
     X_train, y_train, X_test, y_test, cfg, scaler,
     preview_epochs=10,
-    final_epochs=100,
+    final_epochs=250,
     save_preview_model_path=None,
     save_final_model_path=None,
     seed=42,
-    model_type="transformer"
+    model_type="transformger"
 ):
     print(f"[DEBUG][run_best_params_training] Starting preview run for {model_type}")
     cfg_preview = cfg.copy()

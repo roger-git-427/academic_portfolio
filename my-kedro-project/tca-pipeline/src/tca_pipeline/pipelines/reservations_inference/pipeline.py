@@ -55,14 +55,14 @@ def create_pipeline(**kwargs):
         ),
         node(
             func=nodes.build_daily_occupancy,
-            inputs=dict(
-                df="reservations_filtered_inf",
-                year_filter="params:inference.year_filter"
-            ),
+            inputs=[
+                "reservations_filtered_inf",
+                "params:inference.START_DATE",
+                "params:inference.END_DATE"
+            ],
             outputs="rooms_by_date_inf",
             name="build_occupancy_inf"
         ),
-
         # --- Inference nodes ---
         node(
             func=nodes.inference_features,

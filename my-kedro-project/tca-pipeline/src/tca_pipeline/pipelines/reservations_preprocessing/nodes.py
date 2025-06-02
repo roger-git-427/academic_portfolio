@@ -164,7 +164,7 @@ def filtered_df(df: pd.DataFrame) -> pd.DataFrame:
 # 9. BUILD DAILY OCCUPANCY
 
 def build_daily_occupancy(
-    df: pd.DataFrame, year_filter: int | None = 2019, START_DATE: str | None = None, END_DATE: str | None = None) -> pd.DataFrame:
+    df: pd.DataFrame, START_DATE: str | None = None, END_DATE: str | None = None) -> pd.DataFrame:
     print(f"[DEBUG] df input shape: {df.shape}")
 
     # 1) Ensure dates are datetime
@@ -225,13 +225,6 @@ def build_daily_occupancy(
         daily_occupancy[occupancy_cols].fillna(0).astype(int)
     )
 
-    # 7) Optional year filter
-    if year_filter is not None:
-        print(f"[DEBUG] year filter: {year_filter}")
-        daily_occupancy = daily_occupancy[
-            daily_occupancy['Fecha'].dt.year == year_filter
-        ]
-
     print(f"[DEBUG] df daily_occupancy filter shape: {daily_occupancy.shape}")
 
     # To-DO: revisar lo siguiente para funcionalidad completa con la inferencia
@@ -240,7 +233,8 @@ def build_daily_occupancy(
             (daily_occupancy['Fecha'] >= pd.to_datetime(START_DATE)) &
             (daily_occupancy['Fecha'] <= pd.to_datetime(END_DATE))
         ]
-        print(f"[DEBUG] Filtered from {START_DATE} to {END_DATE}: shape = {daily_occupancy.shape}")
+        print(f"[DEBUG] After date filtering: shape = {daily_occupancy.shape}")
+
 
 
     return daily_occupancy
