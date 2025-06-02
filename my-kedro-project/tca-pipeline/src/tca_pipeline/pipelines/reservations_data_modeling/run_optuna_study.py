@@ -33,7 +33,7 @@ optuna_params = params["optuna_search_space"]
 optuna_config = params["optuna_config"]
 
 # 2️⃣ SELECT MODEL TO TUNE
-MODEL_TO_TUNE = "gru"  # <<< or "gru"
+MODEL_TO_TUNE = "transformer"  # <<< or "gru"
 
 space = optuna_params[MODEL_TO_TUNE]
 n_trials = optuna_config["n_trials"]

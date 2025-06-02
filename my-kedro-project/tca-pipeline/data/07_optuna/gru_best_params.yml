@@ -1,0 +1,6 @@
+batch_size: 128
+hidden_dim: 128
+horizon: 2
+lr: 0.00010135228781751616
+num_layers: 2
+window_size: 36

@@ -155,11 +155,7 @@ def train_transformer(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    # Determine model type (in case save_model_path is None → fallback to name)
-    if save_model_path and "gru" in save_model_path:
-        model_type = "gru"
-    else:
-        model_type = "transformer"
+    model_type = "transformer"
 
     best_params_path = f"data/07_optuna/{model_type}_best_params.yml"
 
@@ -247,10 +243,7 @@ def train_gru(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save
     torch.manual_seed(seed)
     
      # Determine model type (in case save_model_path is None → fallback to name)
-    if save_model_path and "gru" in save_model_path:
-        model_type = "gru"
-    else:
-        model_type = "transformer"
+    model_type = "gru"
 
     best_params_path = f"data/07_optuna/{model_type}_best_params.yml"
 

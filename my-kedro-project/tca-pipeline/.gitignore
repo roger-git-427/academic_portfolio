@@ -8,11 +8,6 @@ conf/local/**
 # ignore potentially sensitive credentials files
 conf/**/*credentials*
 
-# ignore everything in the following folders
-data/**
-
-# except their sub-folders
-!data/**/
 
 # also keep all .gitkeep files
 !.gitkeep
@@ -167,5 +162,6 @@ mlruns/*
 *.parquet
 *.xlsx
 *.xls
-
+*.pt
+*.pkl
 mlflow_runs/**
