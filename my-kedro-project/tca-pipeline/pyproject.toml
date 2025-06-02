@@ -27,6 +27,9 @@ dependencies = [
   "setuptools; python_version >= '3.12'",
   "typing>=3.10.0.0",
   "optuna>=4.3.0",
+  "statsmodels>=0.14.4",
+  "neuralforecast>=3.0.1",
+  "wandb>=0.19.11",
 ]
 
 [project.scripts]

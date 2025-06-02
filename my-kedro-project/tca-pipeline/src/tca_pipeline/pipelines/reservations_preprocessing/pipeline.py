@@ -37,5 +37,14 @@ def create_pipeline(**kwargs) -> Pipeline:
         ], "reservations_iqr", name="outliers_pct"),
         node(replace_h_num_persons, "reservations_iqr", "reservations_grouped", name="replace_persons"),
         node(filtered_df, "reservations_grouped", "reservations_filtered", name="filter_reservations"),
-        node(build_daily_occupancy, "reservations_filtered", "rooms_by_date", name="build_occupancy"),
+        node(
+            build_daily_occupancy,
+            inputs=[
+                "reservations_filtered", 
+                "params:date_filter.START_DATE", 
+                "params:date_filter.END_DATE"
+            ],
+            outputs="rooms_by_date",
+            name="build_occupancy"
+        ),
     ])

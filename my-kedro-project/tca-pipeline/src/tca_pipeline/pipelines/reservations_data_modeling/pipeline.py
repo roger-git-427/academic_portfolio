@@ -5,7 +5,9 @@ from .nodes import (
     create_train_test,
     train_transformer,
     train_gru,
-    train_prophet
+    train_lstm,
+    train_prophet,
+    train_sarima  
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -29,6 +31,13 @@ def create_pipeline(**kwargs) -> Pipeline:
             name="create_train_test"
         ),
         node(
+            train_sarima,
+            inputs=["df_features", "params:modeling.sarima"],
+            outputs=["sarima_mae", "sarima_rmse", "sarima_wmape"],
+            name="train_sarima"
+        ),
+
+        node(
             train_transformer,
             inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.transformer", "scaler"],
             outputs=["transformer_mae", "transformer_rmse", "transformer_wmape"],
@@ -39,6 +48,12 @@ def create_pipeline(**kwargs) -> Pipeline:
             inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.gru", "scaler"],
             outputs=["gru_mae", "gru_rmse", "gru_wmape"],
             name="train_gru"
+        ),
+        node(
+            train_lstm,
+            inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.lstm", "scaler"],
+            outputs=["lstm_mae", "lstm_rmse", "lstm_wmape"],
+            name="train_lstm"
         ),
         node(
             train_prophet,
