@@ -1,9 +1,5 @@
-# Here you can define all your datasets by using simple YAML syntax.
-#
-# Documentation for this file format can be found in "The Data Catalog"
-# Link: https://docs.kedro.org/en/stable/data/data_catalog.html
-
 # conf/base/catalog.yml
+
 # ──────────────────────────────────────────────────────────────
 # RAW INPUTS
 # ──────────────────────────────────────────────────────────────
@@ -31,6 +27,9 @@ raw_estatus_reservaciones:
   type: pandas.CSVDataset
   filepath: data/01_raw/iar_estatus_reservaciones.csv
 
+# ──────────────────────────────────────────────────────────────
+# INTERMEDIATE & FEATURE
+# ──────────────────────────────────────────────────────────────
 reservations_base:
   type: pandas.CSVDataset
   filepath: data/02_intermediate/reservations_base.csv
@@ -72,12 +71,15 @@ df_features:
   filepath: data/04_feature/df_features.parquet
 
 # ──────────────────────────────────────────────────────────────
-# MODELING OUTPUTS
+# MODELING OUTPUTS: SCALER
 # ──────────────────────────────────────────────────────────────
 scaler:
   type: pickle.PickleDataset
   filepath: data/06_models/scaler.pkl
 
+# ──────────────────────────────────────────────────────────────
+# MODELING METRICS (ALL MODELS)
+# ──────────────────────────────────────────────────────────────
 transformer_mae:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: transformer_MAE
@@ -102,6 +104,18 @@ gru_wmape:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: gru_WMAPE
 
+lstm_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: lstm_MAE
+
+lstm_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: lstm_RMSE
+
+lstm_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: lstm_WMAPE
+
 prophet_mae:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: prophet_MAE
@@ -114,19 +128,44 @@ prophet_wmape:
   type: kedro_mlflow.io.metrics.MlflowMetricDataset
   key: prophet_WMAPE
 
-# — MLflow‐tracked models (no local pickle) —
+sarima_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: sarima_MAE
+
+sarima_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: sarima_RMSE
+
+sarima_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: sarima_WMAPE
+
+# ──────────────────────────────────────────────────────────────
+# MLflow‐TRACKED MODELS
+# ──────────────────────────────────────────────────────────────
 transformer_model:
   type: kedro_mlflow.io.models.MlflowModelTrackingDataset
   flavor: mlflow.pytorch
-  artifact_path: transformer_model
+  artifact_path: transformer_model_pytorch
 
 gru_model:
   type: kedro_mlflow.io.models.MlflowModelTrackingDataset
   flavor: mlflow.pytorch
-  artifact_path: gru_model
+  artifact_path: gru_model_pytorch
+
+lstm_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: lstm_model_pytorch
+
+prophet_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.prophet
+  artifact_path: prophet_model_pytorch
+
 
 # ──────────────────────────────────────────────────────────────
-# LOCAL PICKLES (so you can load without MLflow)
+# LOCAL PICKLES (for quick loading)
 # ──────────────────────────────────────────────────────────────
 transformer_model_pickle:
   type: pickle.PickleDataset
@@ -136,6 +175,14 @@ gru_model_pickle:
   type: pickle.PickleDataset
   filepath: data/06_models/gru_model.pkl
 
+lstm_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/lstm_model.pkl
+
 prophet_model_pickle:
   type: pickle.PickleDataset
   filepath: data/06_models/prophet_model.pkl
+
+sarima_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/sarima_model.pkl

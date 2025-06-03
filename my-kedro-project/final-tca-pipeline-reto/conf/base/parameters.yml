@@ -6,3 +6,72 @@
   date_filter:
     START_DATE: "2019-02-13"
     END_DATE: "2020-03-08"
+
+  modeling:
+    sarima:
+      order: [3, 1, 6]
+      seasonal_order: [1, 1, 1, 7]
+      periods: 90  # forecast horizon (same as other models)
+
+    features:
+      - day_of_week
+      - month
+      - lag_1
+      - lag_7
+      - lag_30
+      - rolling_mean_7
+      - rolling_mean_21
+      - rolling_std_30
+      - rolling_trend_7
+      - sin_day
+      - cos_day
+      - is_weekend
+      - is_holiday
+      - day_of_year
+
+    window_size: 60
+    horizon: 1
+    n_splits: 6
+
+    retrain_models: true
+
+    transformer:
+      input_dim: 14   # == len(features)
+      d_model: 128
+      nhead: 8
+      num_layers: 4
+      lr: 0.001
+      epochs: 100
+      batch_size: 64
+
+    gru:
+      input_dim: 14
+      hidden_dim: 128
+      num_layers: 4
+      lr: 0.001
+      epochs: 100
+      batch_size: 64
+
+    lstm:
+      input_dim: 12
+      hidden_dim: 256
+      num_layers: 3
+      lr: 0.0005
+      epochs: 250
+      batch_size: 32
+      window_size: 30
+      horizon: 1
+      n_splits: 6
+
+    timesnet:   # 🚀 ADDED — required for objective_timesnet
+      horizon: 30           # forecast horizon (you can adjust)
+      window_size: 60       # how many past days to use
+      freq: "D"             # daily frequency
+      epochs: 100           # will be overwritten by optuna
+      learning_rate: 0.001  # will be overwritten by optuna
+      batch_size: 32        # will be overwritten by optuna
+      n_layers: 2           # will be overwritten by optuna
+      d_model: 128          # will be overwritten by optuna
+
+    prophet:
+      periods: 45
