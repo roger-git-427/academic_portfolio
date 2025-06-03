@@ -9,5 +9,6 @@ dependencies = [
     "fastapi>=0.115.12",
     "holidays>=0.74",
     "pandas>=2.2.3",
+    "scikit-learn>=1.6.1",
     "uvicorn>=0.34.3",
 ]

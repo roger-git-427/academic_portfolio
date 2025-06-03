@@ -4,11 +4,16 @@ from typing import List, Dict, Union
 from pydantic import BaseModel
 
 
-# Entrada esperada: lista de diccionarios con las features
+class PredictionResult(BaseModel):
+    ds: str
+    yhat: float
+    yhat_lower: float
+    yhat_upper: float
+
+
 class InferenceRequest(BaseModel):
-    data: List[Dict[str, Union[int, float]]]
+    data: List[Dict[str, Union[float, int, str]]]  # JSON rows from DataFrame
 
 
-# Salida esperada: una lista de predicciones (una por fila)
 class InferenceResponse(BaseModel):
-    predictions: List[float]
+    predictions: List[PredictionResult]

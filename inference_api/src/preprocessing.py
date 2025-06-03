@@ -109,25 +109,8 @@ def normalise_city(df: pd.DataFrame) -> pd.DataFrame:
     print(df.shape)
     return df
 
-# 6.  OUTLIER REMOVAL
 
-def remove_outliers_percentile(
-    df: pd.DataFrame,
-    exclude: list[str] | None = None,
-    pct: float = 0.01
-) -> pd.DataFrame:
-    exclude = exclude or []
-    lower_q = pct / 2
-    upper_q = 1 - lower_q
-    mask = pd.Series(True, index=df.index)
-    for col in df.select_dtypes(include=["int64", "float64"]).columns:
-        if col in exclude:
-            continue
-        lo, hi = df[col].quantile([lower_q, upper_q])
-        mask &= df[col].between(lo, hi)
-    return df[mask].reset_index(drop=True)
-
-# 7. CORRECT NUMBER OF PERSONS
+# 6. CORRECT NUMBER OF PERSONS
 
 def replace_h_num_persons(df: pd.DataFrame) -> pd.DataFrame:
     required_columns = {'h_num_per', 'h_num_adu', 'h_num_men'}
@@ -142,7 +125,7 @@ def replace_h_num_persons(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# 8.  FILTER RESERVATIONS
+# 7.  FILTER RESERVATIONS
 
 def filtered_df(df: pd.DataFrame) -> pd.DataFrame:
     # Ensure date columns are datetime
@@ -163,7 +146,7 @@ def filtered_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# 9. BUILD DAILY OCCUPANCY
+# 8. BUILD DAILY OCCUPANCY
 
 def build_daily_occupancy(
     df: pd.DataFrame, START_DATE: str | None = None, END_DATE: str | None = None) -> pd.DataFrame:
@@ -326,3 +309,44 @@ def inverse_transform_target(scaler_path: str, y_scaled: np.ndarray) -> np.ndarr
     # Apply inverse transform and extract target column
     inversed = scaler.inverse_transform(dummy)[:, -1]
     return inversed
+
+
+def prepare_prophet_features_for_inference(
+    df: pd.DataFrame,
+    forecast_periods: int
+) -> Tuple[pd.DataFrame, list[str]]:
+
+    df_p = df.copy()
+
+    # Rename
+    df_p = df_p.rename(columns={"Fecha": "ds"})
+    if "target_habitaciones" in df_p.columns:
+        df_p = df_p.rename(columns={"target_habitaciones": "y"})
+
+    #  datetime validation
+    df_p["ds"] = pd.to_datetime(df_p["ds"])
+
+    df_p["is_weekend"] = df_p["ds"].dt.weekday.isin([5, 6]).astype(int)
+    mx = holidays.Mexico()
+    df_p["is_holiday"] = df_p["ds"].isin(mx).astype(int)
+
+
+    regressors = [
+        "is_weekend",
+        "is_holiday",
+        "lag_7",
+        "lag_30",
+        "rolling_mean_7",
+        "rolling_mean_21",
+        "rolling_std_30",
+    ]
+
+    missing = [col for col in regressors if col not in df_p.columns]
+    if missing:
+        raise ValueError(f"Missing required regressors: {missing}")
+
+    # Select last days of the time period
+    df_future = df_p[["ds"] + regressors].tail(forecast_periods).dropna()
+
+    print(f"[DEBUG][prepare_prophet_features_for_inference] Future DF shape: {df_future.shape}")
+    return df_future, regressors
