@@ -53,17 +53,25 @@ async def infer_model(request: InferenceRequest) -> List[PredictionResult]:
     df_filtered = filtered_df(df_grouped)
     df_occupancy = build_daily_occupancy(df_filtered, None, None)
     df_features = prepare_features(df_occupancy)
-    forecast_periods = 45  # ajusta según usaste en entrenamiento
+    forecast_periods = 90  # ajusta según usaste en entrenamiento
     df_future, _ = prepare_prophet_features_for_inference(df_features, forecast_periods)
+
+    print("[DEBUG] ran prepare_prophet_features_for_inference")
 
     model_path = "src/models/prophet_model.pkl"
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"No se encontró el modelo Prophet en {model_path}")
+        raise FileNotFoundError(f"No se encontró el modelo en {model_path}")
+
+    print("[DEBUG] found model path")
 
     with open(model_path, "rb") as f:
         prophet_model = pickle.load(f)
 
+    print(f"[DEBUG] Loaded object from '{model_path}' is: {type(prophet_model)}")
+
     forecast = prophet_model.predict(df_future)
+
+    print(f"[DEBUG] forecast '{forecast}' is type {type(forecast)}")
 
     results: List[PredictionResult] = []
     for _, row in forecast.iterrows():
@@ -76,6 +84,8 @@ async def infer_model(request: InferenceRequest) -> List[PredictionResult]:
                 yhat_upper=float(row["yhat_upper"]),
             )
         )
+
+    print(f"results {results}")
 
     return results
 
