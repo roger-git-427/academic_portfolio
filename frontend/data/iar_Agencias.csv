@@ -1,0 +1,134 @@
+ID_Agencia,Hotel_cve,Agencia_cve,Agencia_nombre,Ciudad_Nombre,Estado_cve,Pais_cod,ID_Entidad_Fed_Agencia,ID_Vendedor
+0,|,PAR,PARTICULAR,PARTICULAR,|,|,0,0
+1,AZU,"AA       ","ALCOHOLICOS ANONIMOS ""A.A.""                                                                         ","CD DE MEXICO                                                ","EDF   ","PMX   ",107,0
+2,AZU,"ACARVAS  ",HOTELES S.A.,"IXTAPA                                                      ","EGR   ","PMX   ",142,0
+3,AZU,"ADVANTAG ","RESORT ADVANTAGE                                                                                    ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+4,AZU,"AEROMEX  ","BESTDAY - AEROMEXICO                                                                                ","CANCUN                                                      ","EQR   ","PMX   ",294,0
+5,AZU,"ALIANZA  ","ALIANZA  COOPERATIVA INTERNACIONAL- CIF:3003123961                                                  ","COSTA RICA                                                  ","ECRI  ","PCR   ",64,0
+6,AZU,"AMEPRES  ","ASOCIACION MEXICANA DE PROFESIONALES EN REGULACION                                                  ","DEL. CUAUHTEMOC                                             ","EMX   ","PMX   ",236,0
+7,AZU,"ANGELES  ","MA DE LOS ANGELES LICEA QUINTANAR / QUERUBINES                                                      ","QUERETARO                                                   ","EQE   ","PMX   ",293,0
+8,AZU,"APPLE    ","APPLE VACATIONS COMPANY                                                                             ","ELK GROVE VILLA                                             ","EIL   ","PUS   ",163,0
+9,AZU,"ASES     ","ASES TOURS S.A. DE C.V.                                                                             ","LOS REYES                                                   ","EMC   ","PMX   ",206,0
+10,AZU,"ASPID    ","ASPID, S.A. DE C.V.                                                                                 ","CD MEXICO                                                   ","EDF   ","PMX   ",107,0
+11,AZU,"ASUNWING ","SUNWING VACATION                                                                                    ","ASUNWING ","EON   ","PCA   ",270,0
+12,AZU,AZULSITIO,HOTELES S.A.,"CANCUN                                                      ","EQR   ","PMX   ",294,0
+13,AZU,"BENIGNOV ","BENIGNO VELAZQUEZ                                                                                   ","BENIGNOV ","EMX   ","PMX   ",236,0
+14,AZU,"BESTDAY  ","BESTDAY TRAVEL GROUP                                                                                ","CANCÚN                                                      ","EQR   ","PMX   ",294,0
+15,AZU,"BIMBO    ","BIMBO, SA DE CV                                                                                     ","CUAUHTEMOC                                                  ","EDF   ","PMX   ",107,0
+16,AZU,"BOOKING  ","BOOKING.COM                                                                                         ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+17,AZU,"BOOKIT   ","BOOKIT.COM                                                                                          ","PANAMA CITY                                                 ","EFL   ","PUS   ",123,0
+18,AZU,"BOOKMX   ","BOOKING MEXICO                                                                                      ","LEON                                                        ","EGT   ","PMX   ",145,0
+19,AZU,"BTC      ","BUSINESS TRAVEL CONSULTING, S.A. DE C.V.                                                            ","CIUDAD DE MEXIC                                             ","EDF   ","PMX   ",107,0
+20,AZU,"CASTILLO ","SANDRA CASTILLO                                                                                     ","ESTADO DE MEXIC                                             ","EMX   ","PMX   ",236,0
+21,AZU,"CEFAMIXT ",HOTELES S.A.,"ZIHUATANEJO                                                 ","EGR   ","PMX   ",142,0
+22,AZU,"CENGAGE  ","CORAD MEETING PLANNER S.A. DE C.V.                                                                  ","MEXICO                                                      ","EDF   ","PMX   ",107,0
+23,AZU,"CHARTER  ","CHARTER GO                                                                                          ","LEON                                                        ","EGT   ","PMX   ",145,0
+24,AZU,CHEAPCARI,"CHEAP CARIBBEAN                                                                                     ","ELK GROVE VILLA                                             ","EIL   ","PUS   ",163,0
+25,AZU,"CIRCULO  ","CIRCULO AZUL ELITE                                                                                  ","INSURGENTES MIX                                             ","EMX   ","PMX   ",236,0
+26,AZU,"CLICKBJX ","CLICK OPERADORA LEON                                                                                ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+27,AZU,"CLICKMLM ","CLICK OPERADORA MORELIA                                                                             ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+28,AZU,"CLICKQRO ","CLICK OPERADORA QUERETARO                                                                           ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+29,AZU,CLUBMEXIC,"JOSE ALLENDE DE LA ROSA                                                                             ","IXTAPA                                                      ","EGR   ","PMX   ",142,0
+30,AZU,"COOPERAT ","COOPERATIVA LA CRUZ AZUL SCL                                                                        ","COYOACAN                                                    ",AZU,"      ",0,0
+31,AZU,"COPPEL   ","JUNTA ANUAL BANCA COMERCIAL BANCOPPEL 2020                                                          ","MIGUEL HIDALGO                                              ","EMX   ","PMX   ",236,0
+32,AZU,"CORTESIA ",HOTELES S.A.,"IXTAPA                                                      ","EGR   ","PMX   ",142,0
+33,AZU,"CRUZAZUL ","CRUZ AZUL CORPORATIVO                                                                               ","DEL. COYOACAN                                               ","EMX   ","PMX   ",236,0
+34,AZU,"CRUZFUT  ","CRUZ AZUL FUTBOL CLUB A.C.                                                                          ","CD MEXICO                                                   ","EMX   ","PMX   ",236,0
+35,AZU,"CTRAVEL  ","ALFREDO ARCE AGUILAR (COORDITRAVEL)                                                                 ","CD CUAUHTEMOC                                               ","ECH   ","PMX   ",53,0
+36,AZU,"CTS      ","CORPORATE TRAVEL SERVICES WORLDWIDE, SAPI DE CV                                                     ","MIGUEL HIDALGO                                              ","EDF   ","PMX   ",107,0
+37,AZU,"DELTA    ","DELTA VACATIONS                                                                                     ","ATLANTA                                                     ","EGA   ","PUS   ",128,0
+38,AZU,"DESPEGAR ","DESPEGAR.COM                                                                                        ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+39,AZU,DIPUTADOS,"SINDICATO DE LA CAMARA DE DIPUTADOS                                                                 ","CD. DE MEXICO                                               ","EDF   ","PMX   ",107,0
+40,AZU,"EPMVAC   ","DIRECTOS EP - MVAC / AZUL & GRAND                                                                   ","IXTAPA                                                      ","EGR   ","PMX   ",142,0
+41,AZU,"EVENTPLA ","EVENT PLANNING CONSULTANCY, A.C.                                                                    ","CD. DE MEXICO                                               ","EDF   ","PMX   ",107,0
+42,AZU,"EVOLU    ","EVOLUTION TOUR                                                                                      ","TLAQUEPAQUE                                                 ","EJA   ","PMX   ",173,0
+43,AZU,"EXP      ","EXPEDIA GROUP                                                                                       ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+44,AZU,"EXYTUR   ","OPERADORA TURISTICA DE URUAPAN SA DE CV                                                             ","URUAPAN                                                     ","EMC   ","PMX   ",206,0
+45,AZU,"FAMGUT   ","MARIA GUTIERREZ                                                                                     ","LAZARO CARDENAS                                             ","EMC   ","PMX   ",206,0
+46,AZU,"FANDI    ","FANDI SA DE CV                                                                                      ","ACAPULCO                                                    ",AZU,"      ",0,0
+47,AZU,"FDILA    ","FEDERACION DENTAL IBERO-LATINOAMERICANA, A.C.                                                       ","ZAPOPAN                                                     ","EJA   ","PMX   ",173,0
+48,AZU,"FEMEXFUT ","FEDERACION MEXICANA DE FUTBOL ASOCIACION A.C.                                                       ","TOLUCA                                                      ","EMX   ","PMX   ",236,0
+49,AZU,"FERPER   ","FERNANDO PEREZ (GRUPO FER-PER)                                                                      ","FERPER   ","EMX   ","PMX   ",236,0
+50,AZU,"FGBMFI   ","FULL GOSPEL BUSINESS MENS FELLOWSHIP INTERNATIONAL                                                  ","IRVINE                                                      ","ECA   ","PUS   ",48,0
+51,AZU,"FLYBUY   ","FLY & BUY MVAC                                                                                      ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+52,AZU,"FMORA    ","JESUS MORALES (GPO FAM MORALES)                                                                     ","HEROES TECAMAC                                              ","EMX   ","PMX   ",236,0
+53,AZU,"FPVBJX   ","GRUPO F.P.V LEON                                                                                    ","LEON                                                        ","EGT   ","PMX   ",145,0
+54,AZU,"FPVMLM   ","GRUPO F.P.V. MORELIA                                                                                ","LEON                                                        ","EGT   ","PMX   ",145,0
+55,AZU,"FUNJET   ","FUNJET VACATIONS                                                                                    ","ELK GROVE VILLA                                             ","EIL   ","PUS   ",163,0
+56,AZU,"G2GO     ","GROUP TO GO, S.A. DE C.V.                                                                           ","CD DE MEXICO                                                ","EDF   ","PMX   ",107,0
+57,AZU,"H.AYUN   ","H. AYUNTAMIENTO CONSTITUCIONAL DE ZIHUATANEJO                                                       ","ZIHUATANEJO                                                 ","EGR   ","PMX   ",142,0
+58,AZU,"HAZUL    ",HOTELES S.A.,"IXTAPA                                                      ","EGR   ","PMX   ",142,0
+59,AZU,"HEALTHY  ","HEALTHY PEOPLE S. DE R.L. DE C.V.                                                                   ","IRAPUATO                                                    ","EGT   ","PMX   ",145,0
+60,AZU,HOTELBEDS,"HOTELBEDS                                                                                           ","CANCUN                                                      ","EQR   ","PMX   ",294,0
+61,AZU,"HOTELS   ","EXPEDIA - HOTELS.COM                                                                                ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+62,AZU,"HYPNO    ","WORLD ASSOCIATION OF ELECTIC HYPNOTHERAPISTS                                                        ","HYPNO    ","ETX   ","PUS   ",346,0
+63,AZU,"IDESUM   ","INSTITUTO DE ESTUDIOS SUPERIORES DEL PACIFICO                                                       ","LAZARO CARDENAS                                             ","EMC   ","PMX   ",206,0
+64,AZU,"INTERJET ","PRICETRAVEL - INTERJET                                                                              ","CANCUN                                                      ","EQR   ","PMX   ",294,0
+65,AZU,"IXTRES   ",HOTELES S.A.,"ZIHUATANEJO                                                 ","EGR   ","PMX   ",142,0
+66,AZU,"JAFRA    ","JAFRA COSMETICS, S.A. DE C.V.                                                                       ","ALVARO OBREGON                                              ","EMX   ","PMX   ",236,0
+67,AZU,"JANSSEN  ","JANSSEN-CILAG, S.A. DE C.V.                                                                         ","COYOACAN                                                    ","EMX   ","PMX   ",236,0
+68,AZU,"JJOPE    ","J&J OPERADORA                                                                                       ","QUERETARO                                                   ","EQE   ","PMX   ",293,0
+69,AZU,"LANDIN   ","PROMOCIONES GRAFICAS MEXICANAS, S.A. DE C.V.                                                        ","QUERETARO                                                   ","EQE   ","PMX   ",293,0
+70,AZU,"LEISURE  ","LEISURE DIRECTOS - T&T                                                                              ","IXTAPA                                                      ","EGR   ","PMX   ",142,0
+71,AZU,"LEISUREC ","LEISURE MINORISTA - T&T                                                                             ","IXTAP                                                       ","EGR   ","PMX   ",142,0
+72,AZU,"LIDS     ","LA IGLESIA DEL SEÑOR                                                                                ","DEL. COYOACAN                                               ","EDF   ","PMX   ",107,0
+73,AZU,"MAGNI    ","MAGNICHARTERS MEXICO                                                                                ","CIUDAD MEXICO                                               ","EMX   ","PMX   ",236,0
+74,AZU,"MAGNIMTY ","MAGNICHARTERS MONTERREY                                                                             ","CIUDAD DE MEXIC                                             ","EMX   ","PMX   ",236,0
+75,AZU,"MAPLE    ","MAPLE TOURS OPERATOR - CVA                                                                          ","GUADALAJARA                                                 ","EJA   ","PMX   ",173,0
+76,AZU,"METRAV   ","METROPOLI TRAVELS, S.A. DE C.V.                                                                     ","LEON                                                        ","EGT   ","PMX   ",145,0
+77,AZU,"MICHE    ","VIAJES MICHELLANGELO                                                                                ","CUERNAVACA                                                  ","EMR   ","PMX   ",227,0
+78,AZU,"MOODO    ","GRUPO MOO DO HE (TAEKWONDO)                                                                         ","TOLUCA                                                      ","EMX   ","PMX   ",236,0
+79,AZU,"MPQS     ","QUALITY SERVICE SERVICIOS TURISTICOS PROFESIONALES                                                  ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+80,AZU,"NOELY    ","CORPOTATIVO NOELY, S.A. DE C.V.                                                                     ","AGUASCALIENTES                                              ","EAGU  ","PMX   ",5,0
+81,AZU,"NUBOX    ","DYNAMIC CRANE, S.A. DE C.V. (NUBOX MARKETING)                                                       ","ATIZAPAN                                                    ","EDF   ","PMX   ",107,0
+82,AZU,"OPERA    ","LA OPERADORA.COM                                                                                    ","ZAPOPAN                                                     ","EJA   ","PMX   ",173,0
+83,AZU,"ORBITZ   ","EXPEDIA - ORBITZ                                                                                    ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+84,AZU,"OUTLET   ","OUTLET VIAJA Y VUELA 2019                                                                           ","ZIHUATANEJO                                                 ","EGR   ","PMX   ",142,0
+85,AZU,PARROQUIA,"JACOB GONZALEZ                                                                                      ","SAN LUIS                                                    ","ESL   ","PMX   ",315,0
+86,AZU,"PART     ","CLIENTES PARTICULARES                                                                               ","IXTAPA                                                      ","EGR   ","PMX   ",142,0
+87,AZU,"PICMEX   ","PIC SERVICIOS AGROPECUARIOS S.A. DE C.V.                                                            ","QUERETARO                                                   ","EQE   ","PMX   ",293,0
+88,AZU,"PLEASANT ","PLEASANT HOLIDAYS                                                                                   ","WESTLAKE VILLAG                                             ","ECA   ","PUS   ",48,0
+89,AZU,PRICETRAV,"PRICETRAVEL HOLDING                                                                                 ","CANCÚN                                                      ","EQR   ","PMX   ",294,0
+90,AZU,"PROMOSER ","PROMOSER                                                                                            ","ZAPOTLANEJO                                                 ","EJA   ","PMX   ",173,0
+91,AZU,"PUREROMA ",HOTELES S.A.,"IXTAPA                                                      ","EGR   ","PMX   ",142,0
+92,AZU,"QSAGS    ","QUALITY SERVICES AGUASCALIENTES                                                                     ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+93,AZU,"QSBJX    ","QUALITY SERVICES LEON                                                                               ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+94,AZU,"QSCDMX   ","QUALITY SERVICES CIUDAD DE MEXICO                                                                   ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+95,AZU,"QSFAGS   ","QUALITY SERVICES - FERIA DE AGUASCALIENTES                                                          ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+96,AZU,"QSFMOR   ","QUALITY SERVICES - FERIA MOROLEON                                                                   ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+97,AZU,"QSGDL    ","QUALITY SERVICES GUADALAJARA                                                                        ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+98,AZU,"QSIXT    ",HOTELES S.A.,"ZIHUATANEJO                                                 ","EGR   ","PMX   ",142,0
+99,AZU,"QSMLM    ","QUALITY SERVICES MORELIA                                                                            ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+100,AZU,"QSPBL    ","QUALITY SERVICES PUEBLA                                                                             ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+101,AZU,"QSQRO    ","QUALITY SERVICES QUERETARO                                                                          ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+102,AZU,"QUIMX    ","SOCIEDAD QUIMICA  DE MEXICO, A.C.                                                                   ","MEXICO                                                      ","EMX   ","PMX   ",236,0
+103,AZU,"RCI      ","RCI                                                                                                 ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+104,AZU,"RECOAGS  ","RECORD VACATION - AGUSCALIENTES                                                                     ","AGUASCALIENTES                                              ","EAGU  ","PMX   ",5,0
+105,AZU,"RECORD   ","RECORD VACATION - GUADALAJARA                                                                       ","GUADALAJARA                                                 ","EJA   ","PMX   ",173,0
+106,AZU,"RNOPER   ","RESERVACIONES NACIONALES OPERADOR                                                                   ","GUADALAJARA, JA                                             ","EJA   ","PMX   ",173,0
+107,AZU,"ROPEC    ","ELECTRONIC ENGINERING SCHOOL - UNIVERSIDAD DE MICH                                                  ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+108,AZU,"RYVENTS  ","CREATIVOS PROF EN EVENTOS Y CONV - PIERRE FABRE                                                     ","CD. MEXICO                                                  ","EMX   ","PMX   ",236,0
+109,AZU,"SAC      ","SERVICIO Y ASESORIA EN CONVENCIONES S.A. DE C.V.                                                    ","CD DE MEXICO                                                ","EDF   ","PMX   ",107,0
+110,AZU,"SALEM    ","IGLESIA SALEM                                                                                       ","SAN MARTIN                                                  ","EPB   ","PMX   ",274,0
+111,AZU,"SERVY    ","ENCUENTRO NACIONAL DE LA AMIDIQ 2020                                                                ","ZAPOPAN                                                     ","EJA   ","PMX   ",173,0
+112,AZU,"SOCIOS   ",HOTELES S.A.,"MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+113,AZU,"SOLAT    ","OPERADORA DE VIAJES SOLATINO                                                                        ","MORELIA                                                     ","EMC   ","PMX   ",206,0
+114,AZU,"SUAUTO   ","SISTEMA UNICO DE AUTOFINANCIAMIENTO, S.A. DE C.V.                                                   ","CIUDAD DE MEXIC                                             ","EDF   ","PMX   ",107,0
+115,AZU,SUNCOUNTR,"SUN COUNTRY AIRLINES                                                                                ","EAGAN                                                       ","EMN   ","PUS   ",220,0
+116,AZU,"SUNWING  ","SUNWING VACATIONS                                                                                   ","TORONTO                                                     ","EON   ","PCA   ",270,0
+117,AZU,"TARIFAS  ","TARIFAS                                                                                             ","TARIFAS  ",AZU,"      ",0,0
+118,AZU,TRAVELIMP,"TRAVEL IMPRESSIONS                                                                                  ","ELK GROVE VILLA                                             ","EIL   ","PUS   ",163,0
+119,AZU,TRAVELOCI,"EXPEDIA - TRAVELOCTY                                                                                ","MEXICO CITY                                                 ","EMX   ","PMX   ",236,0
+120,AZU,"TRAVENTS ","JUNTA DE PLANEACION E INTEGRACION ONCO 2020                                                         ","COYOACAN                                                    ","EMX   ","PMX   ",236,0
+121,AZU,"TSUNAMI  ","LIGA INTERNACIONAL DE CINTAS NEGRAS                                                                 ","CD DE MEXICO                                                ","EDF   ","PMX   ",107,0
+122,AZU,"TT1      ","GRUPO SOFIA VALDEZ / 21-23 JUNIO 2019 / AZUL                                                        ","HIDALGO                                                     ","EHG   ","PMX   ",151,0
+123,AZU,"TT2      ","GRUPO LILY´S TOURS / 11-14 DE MAYO 2019 / AZUL                                                      ","CIUDAD DE MEXIC                                             ","EDF   ","PMX   ",107,0
+124,AZU,"TT3      ","GRUPO EQUIPO ZENITH SAN JUAN / 13-16 JUNIO / GRAND                                                  ","SAN JUAN DEL RI                                             ","EQE   ","PMX   ",293,0
+125,AZU,"UAGRO    ","UNIVERSIDAD AUTONOMA DE GUERRERO                                                                    ","CHILPANCINGO                                                ","EGR   ","PMX   ",142,0
+126,AZU,"USOCASA  ",HOTELES S.A.,"IXTAPA                                                      ","EGR   ","PMX   ",142,0
+127,AZU,"VAPORMA  ","THE VAPORMATIC CO. LTD, S.A. DE C.V.                                                                ","QUERETARO                                                   ","EQE   ","PMX   ",293,0
+128,AZU,"VIAJOMX  ","VIAJO MEXICO                                                                                        ","GUADALAJARA                                                 ","EJA   ","PMX   ",173,0
+129,AZU,"VICARIO  ","ESCUELA PRIMARIA LEONA VICARIO - YANELI SOLIS                                                       ","COACOYUL                                                    ","EGR   ","PMX   ",142,0
+130,AZU,"VILLAT   ","VILLA TOURS S.A. DE C.V.                                                                            ","MONTERREY                                                   ","ENL   ","PMX   ",253,0
+131,AZU,VIVE Y RE,"MICHELLE  SOBERANIS OREGON                                                                          ","ZIHUATANEJO                                                 ","EGR   ","PMX   ",142,0
+132,AZU,"VIZAT    ","TURISTICOS VIZA TOURS                                                                               ","IZTAPALAPA                                                  ","EMX   ","PMX   ",236,0

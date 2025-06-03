@@ -1,0 +1,24 @@
+/* assets/custom.css */
+
+/* 1) Importar Roboto desde Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+/* 2) Aplicar Roboto como fuente por defecto en toda la app */
+body {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* 3) Asegurar que los textos “label-fechas” (slider) queden en Roboto */
+#label-fechas {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* 4) Estilos adicionales para títulos HTML (por si usas h1, h2, h4, etc.) */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* 5) Opcional: ajustar estilos de las tarjetas (cards) si usas clases específicas */
+.card, .card-title {
+  font-family: 'Roboto', sans-serif;
+}
