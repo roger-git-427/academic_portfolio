@@ -30,7 +30,7 @@
       - day_of_year
 
     window_size: 60
-    horizon: 1
+    horizon: 90
     n_splits: 6
 
     retrain_models: true
@@ -60,11 +60,11 @@
       epochs: 250
       batch_size: 32
       window_size: 30
-      horizon: 1
+      horizon: 90
       n_splits: 6
 
     timesnet:   # 🚀 ADDED — required for objective_timesnet
-      horizon: 30           # forecast horizon (you can adjust)
+      horizon: 90           # forecast horizon (you can adjust)
       window_size: 60       # how many past days to use
       freq: "D"             # daily frequency
       epochs: 100           # will be overwritten by optuna
@@ -74,4 +74,4 @@
       d_model: 128          # will be overwritten by optuna
 
     prophet:
-      periods: 45
+      periods: 90

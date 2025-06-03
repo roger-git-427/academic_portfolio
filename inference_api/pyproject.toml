@@ -1,0 +1,12 @@
+[project]
+name = "inference-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "asyncio>=3.4.3",
+    "fastapi>=0.115.12",
+    "pandas>=2.2.3",
+    "uvicorn>=0.34.3",
+]
