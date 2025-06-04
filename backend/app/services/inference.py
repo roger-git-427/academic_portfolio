@@ -40,38 +40,11 @@ async def infer_model(request: InferenceRequest, db: AsyncSession) -> (List[Pred
     """
 
     # --------------------------------------------------------
-    # 1) CONSULTA A LA TABLA `reservaciones` (columnas con comillas dobles)
+    # 1) cCONVIERTE REQUEST A DF
     # --------------------------------------------------------
-    sql_reserv = text("""
-        SELECT
-          "ID_Reserva",
-          "Fecha_hoy",
-          "h_res_fec",
-          "h_num_per",
-          "h_num_adu",
-          "h_num_men",
-          "h_num_noc",
-          "h_tot_hab",
-          "ID_Programa",
-          "ID_Paquete",
-          "ID_Segmento_Comp",
-          "ID_Agencia",
-          "ID_empresa",
-          "ID_Tipo_Habitacion",
-          "ID_canal",
-          "ID_Pais_Origen",
-          "ID_estatus_reservaciones",
-          "h_fec_lld",
-          "h_fec_reg",
-          "h_fec_sda"
-        FROM "reservaciones"
-        WHERE "h_fec_reg" < '2021-03-01';
-    """)
-    result_reserv = await db.execute(sql_reserv)
-    rows_reserv = result_reserv.fetchall()
-    cols_reserv = result_reserv.keys()
 
-    df_raw_reserv = pd.DataFrame(rows_reserv, columns=cols_reserv)
+
+    df_raw_reserv = pd.DataFrame(request.data)
     print(f"[DEBUG] df_raw_reserv.shape = {df_raw_reserv.shape}")
     # --------------------------------------------------------
 
