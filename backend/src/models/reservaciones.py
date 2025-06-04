@@ -1,7 +1,5 @@
 from sqlalchemy import Column, Integer, Text, Float
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from db.base import Base
 
 class Reservaciones(Base):
     __tablename__ = 'reservaciones'

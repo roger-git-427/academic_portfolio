@@ -3,7 +3,7 @@ import uvicorn
 import asyncio
 from fastapi import FastAPI
 from src.utils.schema import InferenceRequest, InferenceResponse
-from src.inference import infer_model
+from backend.src.services.inference import infer_model
 
 app = FastAPI()
 
