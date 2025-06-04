@@ -11,7 +11,7 @@ conf/**/*credentials*
 
 # ignore everything in the following folders
 src/data/**
-src/models/**
+
 
 # except their sub-folders
 !data/**/
