@@ -30,11 +30,10 @@ from app.utils.schema import InferenceRequest, PredictionResult
 
 async def infer_model(request: InferenceRequest, db: AsyncSession) -> (List[PredictionResult]):
     """
-    1) Consulta la tabla `reservaciones` con h_fec_reg < '2021-03-01'
-    2) Consulta los lookup tables (iar_canales, iar_empresas, iar_agencias, iar_estatus_reservaciones)
-    3) Arma DataFrames y ejecuta el pipeline completo
-    4) Genera forecast con Prophet
-    5) Devuelve:
+    1) Consulta los lookup tables (iar_canales, iar_empresas, iar_agencias, iar_estatus_reservaciones)
+    2) Arma DataFrames y ejecuta el pipeline completo
+    3) Genera forecast con Prophet
+    4) Devuelve:
        - intermediate_data: lista de dicts para el DataFrame final de preprocesamiento (df_features)
        - results: lista de PredictionResult
     """
