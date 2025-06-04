@@ -44,7 +44,8 @@ class Settings(BaseSettings):
             
         values = info.data
         
-        return f"postgresql://{values.get('DB_USER')}:{values.get('DB_PASSWORD')}@{values.get('DB_HOST')}:{values.get('DB_PORT')}/{values.get('DB_NAME') or ''}"
+        return f"postgresql+asyncpg://{values.get('DB_USER')}:{values.get('DB_PASSWORD')}@{values.get('DB_HOST')}:{values.get('DB_PORT')}/{values.get('DB_NAME')}"
+
 
     @property
     def BACKEND_CORS_ORIGINS(self) -> List[str]:

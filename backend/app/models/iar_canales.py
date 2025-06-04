@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Text
-from db.base import Base
+from app.db.base import Base
 
 class IarCanales(Base):
     __tablename__ = 'iar_canales'

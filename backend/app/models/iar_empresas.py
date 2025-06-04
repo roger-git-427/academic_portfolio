@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Text
-from db.base import Base
+from app.db.base import Base
 
 class IarEmpresas(Base):
     __tablename__ = 'iar_empresas'
