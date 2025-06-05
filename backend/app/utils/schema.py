@@ -25,23 +25,5 @@ class RawDataResponse(BaseModel):
     iar_empresas: List[Dict[str, Any]]
     iar_agencias: List[Dict[str, Any]]
     iar_estatus_reservaciones: List[Dict[str, Any]]
+    processed_data: List[Dict[str, Any]] 
     
-class FullPipelineResponse(BaseModel):
-    # 1) Raw data (tal cual llega de /raw_data)
-    raw_reservaciones: List[Dict[str, Any]]
-    raw_iar_canales:   List[Dict[str, Any]]
-    raw_iar_empresas:  List[Dict[str, Any]]
-    raw_iar_agencias:  List[Dict[str, Any]]
-    raw_iar_estatus_reservaciones: List[Dict[str, Any]]
-
-    # 2) DataFrame “limpio” de reservaciones (tras aplicar convert_dates, enforce_types, normalise_city, etc.)
-    clean_reservaciones: List[Dict[str, Any]]
-
-    # 3) Ocupación diaria construida
-    daily_occupancy: List[Dict[str, Any]]
-
-    # 4) DataFrame de features (tras prepare_features)
-    features: List[Dict[str, Any]]
-
-    # 5) Predicciones finales
-    predictions: List[Dict[str, Union[str, float]]]

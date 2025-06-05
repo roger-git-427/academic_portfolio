@@ -9,9 +9,13 @@ import pandas as pd
 # Cargar datos al iniciar la aplicación
 data = de.load_data()
 df_reservas = data['reservaciones']
+print(f"[DEBUG MAIN] Reservas cargadas: {len(df_reservas)} filas")
 df_empresas = data['empresas']
+print(f"[DEBUG MAIN] Empresas cargadas: {len(df_empresas)} filas")
 df_canales = data['canales']
+print(f"[DEBUG MAIN] Canales cargados: {len(df_canales)} filas")
 df_agencias = data['agencias']
+print(f"[DEBUG MAIN] Agencias cargadas: {len(df_agencias)} filas")
 
 # Inicializar aplicación Dash con Bootstrap
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -160,6 +164,7 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
 
     # 3) Filtrar datos y calcular KPIs
     df_fil = de.filtrar_datos(df_reservas, sd, ed, empresas or None, canales or None, agencias or None)
+    print(f"[DEBUG callback] Rango: {sd} a {ed} | Filtrado result: {len(df_fil)} filas")
     kpis = de.calcular_kpis(df_fil, freq, total_habs=735)
 
     # 4) Crear gráficas (igual que antes)
@@ -172,7 +177,7 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
     fig_rp  = filters.grafica_linea(kpis['revpar'].index, kpis['revpar'],
                                     titulo='RevPAR', eje_y='RevPAR (MXN)', formato_y='money')
 
-    lead = ((df_fil['h_fec_lld_ok'] - df_fil['h_res_fec_ok']).dt.days
+    lead = ((df_fil['h_fec_lld'] - df_fil['h_res_fec']).dt.days
             if not df_fil.empty else [])
     fig_lead = filters.grafica_histograma(lead, titulo='Anticipación de Reserva',
                                           xaxis_title='Días de anticipación')

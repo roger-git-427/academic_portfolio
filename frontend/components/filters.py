@@ -28,11 +28,20 @@ def crear_controles(
     # --------------------------------------------------
     fecha_base = dt.date(2019, 1, 1)
 
+    print("▶️ [DEBUG crear_controles] dtype de fecha_checkin:", df_reservas["fecha_checkin"].dtype)
+    if not df_reservas["fecha_checkin"].empty:
+        print("   [DEBUG crear_controles] Primeras fechas:", df_reservas["fecha_checkin"].head(3).tolist())
+        print("   [DEBUG crear_controles] Últimas fechas:", df_reservas["fecha_checkin"].tail(3).tolist())
+    else:
+        print("   [DEBUG crear_controles] df_reservas['fecha_checkin'] está vacío")
+
+    
     # Obtener la fecha máxima real de reservas
     max_date = df_reservas["fecha_checkin"].dt.date.max()
+    print("▶️ [DEBUG crear_controles] Fecha máxima de reservas:", max_date)
     if max_date is None or max_date < fecha_base:
         max_date = fecha_base
-
+    print("   [DEBUG crear_controles] max_date calculada:", max_date)
     # Cantidad total de días entre 2019-01-01 y max_date:
     total_days = (max_date - fecha_base).days
 
@@ -209,20 +218,48 @@ def crear_controles(
 
 def grafica_linea(x, y, titulo="", eje_y="", formato_y=None) -> go.Figure:
     """Devuelve una figura de línea con fondo blanco y acento rojo."""
+    # --- 1) Convertir x (index) a objetos datetime o a lista de valores ---
     if isinstance(x, pd.PeriodIndex):
         x_plot = x.to_timestamp()
     else:
-        x_plot = [val.to_timestamp() if hasattr(val, "to_timestamp") else val for val in x]
+        x_plot = [
+            val.to_timestamp() if hasattr(val, "to_timestamp") else val
+            for val in x
+        ]
+    # --- 2) Convertir y (serie) a lista de valores ---
     y_plot = y.tolist() if hasattr(y, "tolist") else list(y)
 
-    fig = px.line(x=x_plot, y=y_plot, title=titulo, color_discrete_sequence=[PRIMARY_COLOR])
+    # --- 3) Detectar listas vacías y devolver figura “vacía” ---
+    if len(x_plot) == 0 or len(y_plot) == 0:
+        fig = go.Figure()
+        fig.update_layout(
+            template="plotly_white",
+            plot_bgcolor=BACKGROUND_COLOR,
+            paper_bgcolor=BACKGROUND_COLOR,
+            font_color=TEXT_COLOR,
+            font_family="Roboto",
+            title=titulo,
+            yaxis_title=eje_y,
+            xaxis_title="Fecha",
+            margin=dict(l=20, r=20, t=30, b=20),
+            height=350,
+        )
+        return fig
+
+    # --- 4) Si hay datos, dibujar normalmente con px.line ---
+    fig = px.line(
+        x=x_plot,
+        y=y_plot,
+        title=titulo,
+        color_discrete_sequence=[PRIMARY_COLOR]
+    )
     fig.update_traces(mode="lines+markers")
     fig.update_layout(
         template="plotly_white",
         plot_bgcolor=BACKGROUND_COLOR,
         paper_bgcolor=BACKGROUND_COLOR,
         font_color=TEXT_COLOR,
-        font_family="Roboto", 
+        font_family="Roboto",
         yaxis_title=eje_y,
         xaxis_title="Fecha",
         margin=dict(l=20, r=20, t=30, b=20),
