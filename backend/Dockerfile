@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev --inexact
 
 
-COPY src src
+COPY app app
 
 # Instalar el proyecto (dependencias ya están instaladas)
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -29,4 +29,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Asegurar que el entorno virtual esté en el PATH
 ENV PATH="/opt/.venv/bin:$PATH"
 
-CMD [ "python3", "-m", "src.main" ]
+CMD [ "python3", "-m", "app.main" ]
