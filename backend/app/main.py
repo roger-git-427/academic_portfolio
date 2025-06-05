@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.utils.schema import InferenceRequest, InferenceResponse, RawDataResponse
 from app.services.inference import infer_model
 from app.services.raw_data import get_all_raw_data 
+from app.services.pipeline import run_full_pipeline
 
 app = FastAPI()
 
@@ -43,7 +44,31 @@ async def raw_data(db: AsyncSession = Depends(get_db)):
             iar_estatus_reservaciones=[]
         )
 
-
+@app.get("/full_pipeline", response_model=FullPipelineResponse)
+async def full_pipeline(db: AsyncSession = Depends(get_db)):
+    """
+    1. Obtiene raw data de todas las tablas
+    2. Aplica limpieza y pipeline sin merges
+    3. Genera predicciones
+    4. Devuelve todos los DataFrames (raw, limpio, occupancy, features) y las predicciones
+    """
+    try:
+        return await run_full_pipeline(db)
+    except Exception as e:
+        print(f"Error en full_pipeline: {e}")
+        # En caso de fallo, devolvemos objetos vacíos para cada sección
+        return FullPipelineResponse(
+            raw_reservaciones=[],
+            raw_iar_canales=[],
+            raw_iar_empresas=[],
+            raw_iar_agencias=[],
+            raw_iar_estatus_reservaciones=[],
+            clean_reservaciones=[],
+            daily_occupancy=[],
+            features=[],
+            predictions=[]
+        )
+        
 async def run_server():
     config = uvicorn.Config(
         app=app,
