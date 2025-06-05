@@ -1,6 +1,6 @@
 # schema.py
 
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 from pydantic import BaseModel
 
 
@@ -17,3 +17,11 @@ class InferenceRequest(BaseModel):
 
 class InferenceResponse(BaseModel):
     predictions: List[PredictionResult]
+
+
+class RawDataResponse(BaseModel):
+    reservaciones: List[Dict[str, Any]]
+    iar_canales: List[Dict[str, Any]]
+    iar_empresas: List[Dict[str, Any]]
+    iar_agencias: List[Dict[str, Any]]
+    iar_estatus_reservaciones: List[Dict[str, Any]]
