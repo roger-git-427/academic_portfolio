@@ -3,8 +3,8 @@ import os
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output
-import utils.data_extractor as de      # tu módulo para cargar y filtrar datos
-import components.filters as filters   # tu módulo de funciones de graficación
+import app.utils.data_extractor as de      # tu módulo para cargar y filtrar datos
+import app.components.filters as filters   # tu módulo de funciones de graficación
 import datetime as dt
 import plotly.graph_objects as go
 import plotly.express as px
@@ -310,7 +310,7 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
     # --------------------------------------
     try:
         payload = {"data": df_pred_window.to_dict(orient='records')}
-        resp = requests.post(f"{API_BASE_URL}/predict", json=payload)
+        resp = requests.post(f"{api_base_url}/predict", json=payload)
         resp.raise_for_status()
 
         resp_json = resp.json()
