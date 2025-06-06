@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import datetime as dt
+import numpy as np
 
 # Colores institucionales
 PRIMARY_COLOR    = "#920F0F"  # Rojo institucional
@@ -347,17 +348,54 @@ def grafica_histograma(data, titulo="", xaxis_title="") -> go.Figure:
 
 
 def grafica_boxplot(data, titulo="", yaxis_title="") -> go.Figure:
-    """Devuelve un diagrama de caja compacto."""
-    fig = px.box(data, title=titulo, color_discrete_sequence=[PRIMARY_COLOR])
-    fig.update_yaxes(range=[-3, 30])
+    """
+    Devuelve un diagrama de caja con la distribución de 'data'
+    (lista o pandas.Series de número de noches), y marca la media con una línea punteada.
+    """
+    # 1) Extraer valores numéricos reales
+    # Si 'data' es un pandas.Series, tomamos solo valores no nulos como floats
+    if hasattr(data, "dropna"):
+        valores = data.dropna().astype(float).values.tolist()
+    else:
+        # Si 'data' ya es una lista/iterable, convertimos cada elemento a float
+        valores = [float(x) for x in data if x is not None]
+
+    # 2) Calcular media
+    if len(valores) > 0:
+        media = float(np.mean(valores))
+    else:
+        media = 0.0
+
+    # 3) Crear boxplot forzando a Plotly a usar la lista de valores
+    fig = px.box(
+        y=valores,
+        title=titulo,
+        color_discrete_sequence=[PRIMARY_COLOR]  # Asegúrate de haber importado o definido PRIMARY_COLOR
+    )
+
+    # 4) Ajustar rango del eje Y (puedes modificar estos límites según tu caso)
+    fig.update_yaxes(range=[-1, 10])
+
+    # 5) Agregar una línea horizontal punteada para marcar la media
+    fig.add_hline(
+        y=media,
+        line_dash="dash",
+        line_color="royalblue",
+        annotation_text=f"Media: {media:.2f}",
+        annotation_position="top left",
+        annotation_font_color="royalblue"
+    )
+
+    # 6) Ajustes de estilo de layout
     fig.update_layout(
         template="plotly_white",
-        plot_bgcolor=BACKGROUND_COLOR,
+        plot_bgcolor=BACKGROUND_COLOR,  # Asegúrate de haber importado o definido BACKGROUND_COLOR
         paper_bgcolor=BACKGROUND_COLOR,
-        font_color=TEXT_COLOR,
-        font_family="Roboto", 
+        font_color=TEXT_COLOR,          # Asegúrate de haber importado o definido TEXT_COLOR
+        font_family="Roboto",
         yaxis_title=yaxis_title,
-        margin=dict(l=20, r=20, t=30, b=20),
+        margin=dict(l=20, r=20, t=50, b=20),  # Se deja más espacio en 't' para la anotación
         height=350,
     )
+
     return fig
