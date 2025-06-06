@@ -128,113 +128,138 @@ def calcular_kpis(
     total_habs: int = 735
 ) -> Dict[str, Any]:
     """
-    Calcula KPI temporales y globales sobre el DataFrame filtrado.
-    Ahora con prints de debug en pasos clave para diagnosticar valores y columnas.
+    Calcula KPI temporales y globales a partir de la ocupación diaria “explodida”.
     """
-    print("▶️ [DEBUG] Entrando a calcular_kpis. Filas recibidas:", len(df))
     if df.empty:
-        print("    [DEBUG] DataFrame vacío. Retornando indicadores cero.")
-        empty_series = pd.Series(dtype=float)
-        global_vals = {
-            "total_reservas": 0,
-            "room_nights": 0,
-            "ocupacion": 0,
-            "adr": 0,
-            "revpar": 0,
-            "avg_stay": 0,
-            "tasa_cancel": 0,
-            "tasa_noshow": 0
-        }
+        empty = pd.Series(dtype=float)
         return {
-            **{k: empty_series for k in ["volumen", "room_nights", "ocupacion", "adr", "revpar"]},
-            "global": global_vals
+            **{k: empty for k in ["volumen", "room_nights", "ocupacion", "adr", "revpar"]},
+            "global": {k: 0 for k in [
+                "total_reservas","room_nights","ocupacion","adr","revpar","avg_stay","tasa_cancel","tasa_noshow"
+            ]}
         }
 
-    # 1) Verificar si existen las columnas requeridas
+    # 1) Verificamos columnas y creamos df_k indexado por fecha_checkin
     columnas_necesarias = ["fecha_checkin", "h_num_noc", "h_tot_hab", "h_tfa_total", "descripcion"]
     for col in columnas_necesarias:
-        print(f"    [DEBUG] Columna '{col}' presente:" , col in df.columns,
-              f"| Nulos en '{col}':", df[col].isna().sum() if col in df.columns else "N/A")
-
-    # Indexar por fecha_checkin para agrupaciones
+        if col not in df.columns:
+            raise KeyError(f"No se encontró la columna '{col}'")
     df_k = df.copy()
-    try:
-        df_k.set_index("fecha_checkin", inplace=True)
-        print("    [DEBUG] Índice cambiado a 'fecha_checkin'. Primeras fechas:", df_k.index.min(), "->", df_k.index.max())
-    except KeyError:
-        print("    [ERROR] No se encontró la columna 'fecha_checkin' en el DataFrame.")
-        raise
+    df_k["fecha_checkin"] = pd.to_datetime(df_k["fecha_checkin"], errors="coerce")
+    df_k = df_k.dropna(subset=["fecha_checkin"])
+    df_k.set_index("fecha_checkin", inplace=True)
 
-    # 2) Calcular métricas por periodo
-    grp = df_k.groupby(pd.Grouper(freq=freq))
-    volumen = grp.size()
-    print("    [DEBUG] Serie 'volumen' obtenida. Primeros valores:\n", volumen.head())
+    # 2) Filtramos filas inválidas y calculamos ingreso_por_noche
+    df_k = df_k.dropna(subset=["h_num_noc", "h_tot_hab", "h_tfa_total"])
+    df_k["h_num_noc"] = df_k["h_num_noc"].astype(int)
+    df_k = df_k[df_k["h_num_noc"] > 0]
+    df_k["ingreso_por_noche"] = df_k["h_tfa_total"] / df_k["h_num_noc"]
 
-    room_nights = grp.apply(lambda x: (x["h_num_noc"] * x["h_tot_hab"]).sum())
-    print("    [DEBUG] Serie 'room_nights' obtenida. Primeros valores:\n", room_nights.head())
+    # 3) Creamos stay_dates para cada reserva y explotamos
+    df_k["stay_dates"] = df_k.apply(
+        lambda row: list(pd.date_range(
+            start=row.name,
+            periods=row["h_num_noc"],
+            freq="D"
+        )),
+        axis=1
+    )
+    df_exploded = df_k.explode("stay_dates").rename(columns={"stay_dates": "fecha_ocupacion"})
 
-    ingreso_total = grp["h_tfa_total"].sum()
-    print("    [DEBUG] Serie 'ingreso_total' obtenida. Primeros valores:\n", ingreso_total.head())
+    # 4) Agrupamos por día: habitaciones e ingreso
+    diario = (
+        df_exploded
+        .groupby("fecha_ocupacion")
+        .agg({
+            "h_tot_hab": "sum",
+            "ingreso_por_noche": "sum"
+        })
+        .rename(columns={
+            "h_tot_hab": "habitaciones_ocupadas",
+            "ingreso_por_noche": "ingreso_total"
+        })
+    )
+    diario.index.name = None
 
-    adr = ingreso_total.div(room_nights.replace({0: pd.NA}))
-    print("    [DEBUG] Serie 'adr' (Ingreso ÷ Room Nights). Primeros valores:\n", adr.head())
+    # 5) Calculamos KPIs diarios
+    diario["ocupacion_%"] = diario["habitaciones_ocupadas"] / total_habs * 100
+    diario["adr"] = diario.apply(
+        lambda r: r["ingreso_total"] / r["habitaciones_ocupadas"]
+                  if r["habitaciones_ocupadas"] > 0 else 0,
+        axis=1
+    )
+    diario["revpar"] = diario["ingreso_total"] / total_habs
 
-    # 3) Calcular días en cada periodo
-    if freq == "D":
-        dias_en_periodo = pd.Series(1, index=volumen.index)
-    elif freq == "W":
-        dias_en_periodo = pd.Series(7, index=volumen.index)
-    elif freq == "M":
-        dias_en_periodo = pd.to_datetime(volumen.index).to_series().dt.days_in_month
-    else:
-        dias_en_periodo = pd.Series(1, index=volumen.index)
-    print("    [DEBUG] 'dias_en_periodo' para frecuencia", freq, "Primeros valores:\n", dias_en_periodo.head())
+    # 6) Reagrupamos a la frecuencia solicitada (D, W o M)
+    def agrupar_a_periodo(diario_df, freq, total_habs):
+        agr = diario_df.resample(freq).agg({
+            "habitaciones_ocupadas": "sum",
+            "ingreso_total": "sum"
+        }).rename(columns={
+            "habitaciones_ocupadas": "room_nights_periodo",
+            "ingreso_total": "ingreso_total_periodo"
+        })
 
-    ocupacion = room_nights.div(total_habs * dias_en_periodo) * 100
-    print("    [DEBUG] Serie 'ocupacion' (%). Primeros valores:\n", ocupacion.head())
+        if freq == "D":
+            dias = pd.Series(1, index=agr.index)
+        elif freq == "W":
+            dias = pd.Series(7, index=agr.index)
+        elif freq == "M":
+            dias = pd.to_datetime(agr.index).to_series().dt.days_in_month
+        else:
+            dias = pd.Series(1, index=agr.index)
 
-    revpar = adr.mul(ocupacion.div(100))
-    print("    [DEBUG] Serie 'revpar' (ADR × Ocupación). Primeros valores:\n", revpar.head())
+        agr["ocupacion"] = agr["room_nights_periodo"] / (total_habs * dias) * 100
+        agr["adr"] = agr.apply(
+            lambda r: r["ingreso_total_periodo"] / r["room_nights_periodo"]
+                      if r["room_nights_periodo"] > 0 else 0,
+            axis=1
+        )
+        agr["revpar"] = agr["ingreso_total_periodo"] / (total_habs * dias)
 
-    # 4) KPI globales
-    total_res = len(df_k)
-    total_rn = room_nights.sum()
-    span_days = (df_k.index.max() - df_k.index.min()).days + 1
-    ocupacion_glob = (total_rn / (total_habs * span_days)) * 100 if span_days > 0 else 0
-    adr_glob = ingreso_total.sum() / total_rn if total_rn > 0 else 0
-    revpar_glob = adr_glob * (ocupacion_glob / 100)
-    avg_stay = df_k["h_num_noc"].mean()
+        return agr
 
-    print(f"    [DEBUG] KPI globales → total_res: {total_res}, total_rn: {total_rn}, span_days: {span_days}")
-    print(f"             → ocupacion_glob: {ocupacion_glob:.2f}%, adr_glob: {adr_glob:.2f}, revpar_glob: {revpar_glob:.2f}, avg_stay: {avg_stay:.2f}")
+    kpis_periodo = agrupar_a_periodo(diario, freq, total_habs)
 
-    # 5) Tasas de cancelación y no-show
-    # Revisar conteo de filas que tengan 'descripcion' nula o en blanco
-    null_descr = df_k["descripcion"].isna().sum()
-    print("    [DEBUG] Filas con 'descripcion' nulo antes de conteo:", null_descr)
+    # 7) Extraemos las series que queremos devolver:
+    volumen     = kpis_periodo["room_nights_periodo"]   # antes era grp.size(), ahora es suma diaria/periodo
+    room_nights = kpis_periodo["room_nights_periodo"]
+    ocupacion   = kpis_periodo["ocupacion"]
+    adr         = kpis_periodo["adr"]
+    revpar      = kpis_periodo["revpar"]
 
+    # 8) KPI globales (igual que antes, pero calculados sobre df_k “raw”, no resampleado)
+    total_res     = len(df_k)
+    total_roomn   = df_k["h_num_noc"].mul(df_k["h_tot_hab"]).sum()
+    span_days     = (df_k.index.max() - df_k.index.min()).days + 1
+    ocup_glob     = (total_roomn / (total_habs * span_days)) * 100 if span_days > 0 else 0
+    ingreso_glob  = df_k["h_tfa_total"].sum()
+    adr_glob      = ingreso_glob / total_roomn if total_roomn > 0 else 0
+    revpar_glob   = adr_glob * (ocup_glob / 100)
+    avg_stay      = df_k["h_num_noc"].mean()
+
+    # 9) Tasas de cancelación y no-show (sobre df_k original indexado)
     cancelados = df_k["descripcion"].str.contains("cancel", case=False, na=False).sum()
-    noshows = df_k["descripcion"].str.contains("no show", case=False, na=False).sum()
-    print(f"    [DEBUG] Reservas con 'cancel': {cancelados}, con 'no show': {noshows}")
-
+    noshows    = df_k["descripcion"].str.contains("no show", case=False, na=False).sum()
     tasa_cancel = cancelados / total_res * 100 if total_res > 0 else 0
     tasa_noshow = noshows / total_res * 100 if total_res > 0 else 0
-    print(f"    [DEBUG] Tasa cancelación: {tasa_cancel:.2f}%, Tasa no-show: {tasa_noshow:.2f}%")
+
+    global_vals = {
+        "total_reservas": total_res,
+        "room_nights": total_roomn,
+        "ocupacion": ocup_glob,
+        "adr": adr_glob,
+        "revpar": revpar_glob,
+        "avg_stay": avg_stay,
+        "tasa_cancel": tasa_cancel,
+        "tasa_noshow": tasa_noshow
+    }
 
     return {
-        "volumen": volumen,
+        "volumen":     volumen,
         "room_nights": room_nights,
-        "ocupacion": ocupacion,
-        "adr": adr,
-        "revpar": revpar,
-        "global": {
-            "total_reservas": total_res,
-            "room_nights": total_rn,
-            "ocupacion": ocupacion_glob,
-            "adr": adr_glob,
-            "revpar": revpar_glob,
-            "avg_stay": avg_stay,
-            "tasa_cancel": tasa_cancel,
-            "tasa_noshow": tasa_noshow
-        }
+        "ocupacion":   ocupacion,
+        "adr":         adr,
+        "revpar":      revpar,
+        "global":      global_vals
     }
