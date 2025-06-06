@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: development
+  name: inference-api
+  labels:
+    ia/team: dockercitos
+    ia/project: tca_reto
+    ia/environment: alpha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inference-api
+  template:
+    metadata:
+      labels:
+        app: inference-api
+        ia/team: dockercitos
+        ia/project: tca_reto
+        sidecar.istio.io/inject: "false"
+        ia/environment: alpha
+    spec:
+      volumes:
+        - name: secret-store-inference-api
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: azure-kv-provider
+      containers:
+        - name: inference-api
+          image: dockercitosregistry.azurecr.io/inference-api:latest
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: secret-store-inference-api
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: secret-from-csi
+                  key: db-host
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: secret-from-csi
+                  key: db-port
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: secret-from-csi
+                  key: db-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secret-from-csi
+                  key: db-password
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: secret-from-csi
+                  key: db-name
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: secret-from-csi
+                  key: secret-key
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              valueFrom:
+                secretKeyRef:
+                  name: secret-from-csi
+                  key: access-token-expire-minutes
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: 500m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: development
+  name: inference-api
+  labels:
+    ia/team: dockercitos
+    ia/project: tca_reto
+    ia/environment: alpha
+spec:
+  selector:
+    app: inference-api
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
