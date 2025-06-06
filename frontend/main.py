@@ -1,3 +1,6 @@
+
+import os
+from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output
 import utils.data_extractor as de      # tu módulo para cargar y filtrar datos
@@ -21,7 +24,11 @@ df_agencias  = data['agencias']
 # ---------------------------------------------------
 # Configurar base URL de tu API
 # ---------------------------------------------------
-API_BASE_URL = "http://127.0.0.1:8000"
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the API_BASE_URL environment variable
+api_base_url = os.getenv("API_BASE_URL")
 
 # ---------------------------------------------------
 # Iniciar aplicación Dash
@@ -93,7 +100,7 @@ app.layout = html.Div(
                     dbc.Col(dcc.Graph(id='indicador-revpar',    config={'displayModeBar': False}), xs=12, sm=6, md=3),
                     dbc.Col(dcc.Graph(id='indicador-ocupacion', config={'displayModeBar': False}), xs=12, sm=6, md=3),
                     dbc.Col(dcc.Graph(id='indicador-estancia',  config={'displayModeBar': False}), xs=12, sm=6, md=3),
-                ], className='mb-4 mt-4'),
+                ], className='mb-4 mt-2'),
 
                 # Serie temporal de Volumen
                 dbc.Row([
