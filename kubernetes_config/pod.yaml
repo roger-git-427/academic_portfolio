@@ -1,22 +1,15 @@
 apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: workload-identity-sa
-  namespace: development
-  annotations:
-    azure.workload.identity/client-id: 4347167e-9766-4036-b96a-f40c1dd6dffe
----
-apiVersion: v1
 kind: Pod
 metadata:
   name: secret-test
   namespace: development
 spec:
-  serviceAccountName: workload-identity-sa
   containers:
     - name: busybox
-      image: busybox
-      command: [ "sleep", "3600" ]
+      image: busybox:1.35
+      command:
+        - "/bin/sleep"
+        - "3600"
       volumeMounts:
         - name: secrets-store
           mountPath: "/mnt/secrets-store"
