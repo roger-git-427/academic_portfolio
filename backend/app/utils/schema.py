@@ -12,7 +12,7 @@ class PredictionResult(BaseModel):
 
 
 class InferenceRequest(BaseModel):
-    data: List[Dict[str, Union[float, int, str]]]  # JSON rows from DataFrame
+    data: List[Dict[str, Union[float, int, str, None]]]  # JSON rows from DataFrame
 
 
 class InferenceResponse(BaseModel):

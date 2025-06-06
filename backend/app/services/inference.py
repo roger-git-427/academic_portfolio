@@ -162,7 +162,9 @@ async def infer_model(request: InferenceRequest, db: AsyncSession) -> (List[Pred
                 yhat_lower=float(yhat_lower),
                 yhat_upper=float(yhat_upper),
             )
-        )
+        )  
+        
+        print(f"[DEBUG] Agregada predicción: {ds_str} - yhat: {yhat}, lower: {yhat_lower}, upper: {yhat_upper}")
 
 
     # Devuelve una tupla: (intermediate_data, lista de PredictionResult)
