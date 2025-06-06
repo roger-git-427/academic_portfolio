@@ -30,48 +30,20 @@ from app.utils.schema import InferenceRequest, PredictionResult
 
 async def infer_model(request: InferenceRequest, db: AsyncSession) -> (List[PredictionResult]):
     """
-    1) Consulta la tabla `reservaciones` con h_fec_reg < '2021-03-01'
-    2) Consulta los lookup tables (iar_canales, iar_empresas, iar_agencias, iar_estatus_reservaciones)
-    3) Arma DataFrames y ejecuta el pipeline completo
-    4) Genera forecast con Prophet
-    5) Devuelve:
+    1) Consulta los lookup tables (iar_canales, iar_empresas, iar_agencias, iar_estatus_reservaciones)
+    2) Arma DataFrames y ejecuta el pipeline completo
+    3) Genera forecast con Prophet
+    4) Devuelve:
        - intermediate_data: lista de dicts para el DataFrame final de preprocesamiento (df_features)
        - results: lista de PredictionResult
     """
 
     # --------------------------------------------------------
-    # 1) CONSULTA A LA TABLA `reservaciones` (columnas con comillas dobles)
+    # 1) cCONVIERTE REQUEST A DF
     # --------------------------------------------------------
-    sql_reserv = text("""
-        SELECT
-          "ID_Reserva",
-          "Fecha_hoy",
-          "h_res_fec",
-          "h_num_per",
-          "h_num_adu",
-          "h_num_men",
-          "h_num_noc",
-          "h_tot_hab",
-          "ID_Programa",
-          "ID_Paquete",
-          "ID_Segmento_Comp",
-          "ID_Agencia",
-          "ID_empresa",
-          "ID_Tipo_Habitacion",
-          "ID_canal",
-          "ID_Pais_Origen",
-          "ID_estatus_reservaciones",
-          "h_fec_lld",
-          "h_fec_reg",
-          "h_fec_sda"
-        FROM "reservaciones"
-        WHERE "h_fec_reg" < '2021-03-01';
-    """)
-    result_reserv = await db.execute(sql_reserv)
-    rows_reserv = result_reserv.fetchall()
-    cols_reserv = result_reserv.keys()
 
-    df_raw_reserv = pd.DataFrame(rows_reserv, columns=cols_reserv)
+
+    df_raw_reserv = pd.DataFrame(request.data)
     print(f"[DEBUG] df_raw_reserv.shape = {df_raw_reserv.shape}")
     # --------------------------------------------------------
 
@@ -190,7 +162,9 @@ async def infer_model(request: InferenceRequest, db: AsyncSession) -> (List[Pred
                 yhat_lower=float(yhat_lower),
                 yhat_upper=float(yhat_upper),
             )
-        )
+        )  
+        
+        print(f"[DEBUG] Agregada predicción: {ds_str} - yhat: {yhat}, lower: {yhat_lower}, upper: {yhat_upper}")
 
 
     # Devuelve una tupla: (intermediate_data, lista de PredictionResult)
