@@ -3,33 +3,44 @@ import os
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output
-import app.utils.data_extractor as de      # tu módulo para cargar y filtrar datos
-import app.components.filters as filters   # tu módulo de funciones de graficación
+import utils.data_extractor_v2 as de  # Use the updated data extractor
+import components.filters as filters
 import datetime as dt
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import requests
 import numpy as np
+import traceback
 
-# Load environment variables from .env file
+# ---------------------------------------------------
+# Load environment variables before attempting data load
+# ---------------------------------------------------
 load_dotenv()
 
-# Access the API_BASE_URL environment variable
+# Access environment variables
 api_base_url = os.getenv("API_BASE_URL")
-print(f"API_BASE_UR:{api_base_url}")
-# ---------------------------------------------------
-# Cargar datos al iniciar la aplicación
-# ---------------------------------------------------
-data = de.load_data()
-df_reservas = data['reservaciones']
-df_empresas  = data['empresas']
-df_canales   = data['canales']
-df_agencias  = data['agencias']
+use_direct_db = os.getenv("USE_DIRECT_DB", "false").lower() == "true"
 
 # ---------------------------------------------------
-# Configurar base URL de tu API
+# Initialize data loading with error handling
 # ---------------------------------------------------
+try:
+    print(f"[INFO] Loading data using {'direct database' if use_direct_db else 'API'}")
+    data = de.load_data()
+    df_reservas = data['reservaciones']
+    df_empresas = data['empresas']
+    df_canales = data['canales']
+    df_agencias = data['agencias']
+    print(f"[INFO] Data loaded successfully: {len(df_reservas)} reservations")
+except Exception as e:
+    print(f"[ERROR] Failed to load data: {str(e)}")
+    print(traceback.format_exc())
+    # Create empty DataFrames as fallback
+    df_reservas = pd.DataFrame()
+    df_empresas = pd.DataFrame()
+    df_canales = pd.DataFrame() 
+    df_agencias = pd.DataFrame()
 
 # ---------------------------------------------------
 # Iniciar aplicación Dash
