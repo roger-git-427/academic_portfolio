@@ -1,0 +1,53 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: development
+  name: frontend-dash
+  labels:
+    ia/team: dockercitos
+    ia/project: tca_reto
+    ia/environment: alpha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-dash
+  template:
+    metadata:
+      labels:
+        app: frontend-dash
+        ia/team: dockercitos
+        ia/project: tca_reto
+        ia/environment: alpha
+    spec:
+      containers:
+        - name: frontend-dash
+          image: dockercitosregistry.azurecr.io/frontend-app:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8050
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 200m
+            limits:
+              memory: 1Gi
+              cpu: 500m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: development
+  name: frontend-dash-svc
+  labels:
+    ia/team: dockercitos
+    ia/project: tca_reto
+    ia/environment: alpha
+spec:
+  selector:
+    app: frontend-dash
+  ports:
+    - port: 80
+      targetPort: 8050
+      protocol: TCP
