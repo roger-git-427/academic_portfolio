@@ -1,5 +1,6 @@
 # frontend/utils/data_extractor.py
-
+import os
+from dotenv import load_dotenv
 from pathlib import Path
 from functools import lru_cache
 import pandas as pd
@@ -9,9 +10,13 @@ from typing import Optional, List, Dict, Any
 import requests
 
 # Directorio de datos por defecto (carpeta 'data' en el nivel superior del proyecto)
-DATA_DIR = Path(__file__).resolve().parent.parent / 'data'
-API_BASE_URL = "http://127.0.0.1:8000"
 
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the API_BASE_URL environment variable
+api_base_url = os.getenv("API_BASE_URL")
 
 @lru_cache(maxsize=1)
 def load_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
@@ -19,7 +24,7 @@ def load_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
     Carga todos los DataFrames vía GET /raw_data de la API y
     devuelve un diccionario con DataFrames ya listos para usar.
     """
-    url = f"{API_BASE_URL}/raw_data"
+    url = f"{api_base_url}/raw_data"
     resp = requests.get(url)
     resp.raise_for_status()
     raw_json = resp.json()
