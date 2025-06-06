@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS_STR: str = ""
 
     # Ruta al modelo de ML
-    MODEL_PATH: str
+    MODEL_PATH: str = "app/utils/models/prophet_model.pkl"
 
     model_config = {
         "env_file": ".env",
