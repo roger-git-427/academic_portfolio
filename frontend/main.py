@@ -1,3 +1,4 @@
+
 import os
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
@@ -281,7 +282,6 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
 
     # Definimos ventana de entrenamiento: últimos 180 días hasta ed
     window_start = window_end - pd.Timedelta(days=180)
-    print(f"[DEBUG] Ventana de predicción (entrenamiento): {window_start}")
     train_end = window_end  # ahora entrenamos hasta la fecha seleccionada
 
     print(f"[DEBUG] Ventana de predicción (entrenamiento): {window_start:%Y-%m-%d} a {train_end:%Y-%m-%d}")
@@ -294,7 +294,6 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
 
     # =====≪ Formatear columnas datetime a "%Y%m%d" para JSON ≫=====
     for col in df_pred_window.select_dtypes(include=['datetime64']).columns:
-        print(f"[DEBUG] Columna '{col}' convertida a str de fecha (ISO).")
         df_pred_window[col] = df_pred_window[col].dt.strftime('%Y%m%d')
     if 'h_fec_reg' in df_pred_window.columns:
         df_pred_window['h_fec_reg'] = (
@@ -310,9 +309,8 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
     # 6) Llamada a /predict con la ventana hasta ed
     # --------------------------------------
     try:
-        payload = None
         payload = {"data": df_pred_window.to_dict(orient='records')}
-        resp = requests.post(f"{api_base_url}/predict", json=payload)
+        resp = requests.post(f"{API_BASE_URL}/predict", json=payload)
         resp.raise_for_status()
 
         resp_json = resp.json()
