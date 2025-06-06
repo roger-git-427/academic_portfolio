@@ -78,7 +78,7 @@ def crear_controles(
                     [
                         # Este contenedor tendrá el texto dinámico "Rango de fechas: Del X al Z"
                         html.Div(
-                            id="label-fechas-filtro",
+                            id="label-fechas",
                             style={
                                 "color": 'white',
                                 "fontWeight": "500",

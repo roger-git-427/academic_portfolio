@@ -87,12 +87,6 @@ app.layout = html.Div(
             children=[
                 html.Hr(style={'borderColor': '#444444', 'margin': '0'}),
 
-                # este DIV mostrará el texto con el rango de fechas
-                html.Div(
-                    id='label-fechas',
-                    style={'color': 'white', 'textAlign': 'center', 'fontSize': '18px', 'margin': '15px 0'}
-                ),
-
                 # KPI Cards
                 dbc.Row([
                     dbc.Col(dcc.Graph(id='indicador-adr',       config={'displayModeBar': False}), xs=12, sm=6, md=3),
@@ -154,9 +148,8 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
       2) Filtra df_reservas y calcula KPIs.
       3) Recorta cada serie histórica al rango [sd, ed].
       4) Construye los gráficos históricos.
-      5) Reconstruye la ventana de los últimos 4 meses (en función de ed),
-         toma los primeros 3, formatea fechas a "%Y%m%d" y llama a /predict.
-      6) Superpone la curva pronosticada sobre cada gráfico histórico.
+      5) Reconstruye la ventana de datos para entrenar hasta la fecha ed, llama a /predict.
+      6) Agrupa la predicción según freq y superpone sobre los gráficos.
       7) Devuelve todos los gráficos y el texto del label-fechas.
     """
 
@@ -272,25 +265,24 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
     )
 
     # --------------------------------------
-    # 5) Reconstruir la ventana a base de días
+    # 5) Reconstruir la ventana para entrenar hasta ed
     # --------------------------------------
     df_raw = df_reservas.copy()
     df_raw['fecha_checkin'] = pd.to_datetime(df_raw['fecha_checkin'], errors='coerce')
 
-    # Tomamos como punto final la fecha “ed” que viene del slider:
+    # Tomamos como punto final de entrenamiento la fecha “ed” que viene del slider:
     window_end = pd.to_datetime(ed)
 
-    # Restamos 110 días para definir el inicio de la ventana completa:
+    # Definimos ventana de entrenamiento: últimos 180 días hasta ed
     window_start = window_end - pd.Timedelta(days=180)
+    train_end = window_end  # ahora entrenamos hasta la fecha seleccionada
 
-    # De esos 110 días de datos, solo queremos mandar los primeros 90 días:
-    train_end = window_start + pd.Timedelta(days=160)
-    print(f"[DEBUG] Ventana de predicción: {window_start:%Y-%m-%d} a {train_end:%Y-%m-%d}")
+    print(f"[DEBUG] Ventana de predicción (entrenamiento): {window_start:%Y-%m-%d} a {train_end:%Y-%m-%d}")
 
-    # Filtramos reservas con check-in en [window_start, train_end)
+    # Filtramos reservas con check-in en [window_start, train_end]
     df_pred_window = df_raw[
         (df_raw['fecha_checkin'] >= window_start) &
-        (df_raw['fecha_checkin'] <  train_end)
+        (df_raw['fecha_checkin'] <= train_end)
     ].copy()
 
     # =====≪ Formatear columnas datetime a "%Y%m%d" para JSON ≫=====
@@ -307,7 +299,7 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
     df_pred_window = df_pred_window.where(pd.notnull(df_pred_window), None)
 
     # --------------------------------------
-    # 6) Llamada a /predict con los primeros 90 días
+    # 6) Llamada a /predict con la ventana hasta ed
     # --------------------------------------
     try:
         payload = {"data": df_pred_window.to_dict(orient='records')}
@@ -333,13 +325,23 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
         df_pred = pd.DataFrame(columns=['yhat', 'yhat_lower', 'yhat_upper'])
         
     # --------------------------------------
-    # 7) Superponer la curva de pronóstico sobre los gráficos históricos
+    # 7) Agrupar pronóstico según freq y superponer curva
     # --------------------------------------
-    # — Volumen (histórico + pronóstico)
+
+    # — Preparar variables globales para agrupar predicción
+    total_habs = 735
+    adr_glob = kpis['global']['adr']
+
+    # — Volumen histórico se añadió arriba (fig_vol).
+    #    Ahora agrupamos el pronóstico:
     if not df_pred.empty:
+        # Agrupar y sumar 'yhat' según la frecuencia seleccionada
+        pred_vol_agg = df_pred['yhat'].resample(freq).sum()
+
+        # Trazar volumen pronosticado en freq
         fig_vol.add_trace(go.Scatter(
-            x=df_pred.index,
-            y=df_pred['yhat'],
+            x=pred_vol_agg.index,
+            y=pred_vol_agg.values,
             mode='lines',
             name='Volumen Pronosticado',
             line=dict(color=filters.PRIMARY_COLOR, dash='dash')
@@ -365,10 +367,24 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
         line=dict(color='lightgrey')
     ))
     if not df_pred.empty:
-        total_habs = 735
-        ocup_pred = df_pred['yhat'] / total_habs * 100
+        # Agrupar volumen pronosticado según freq
+        pred_vol_agg = df_pred['yhat'].resample(freq).sum()
+
+        # Calcular días por período según freq
+        if freq == "D":
+            dias_periodo = 1
+        elif freq == "W":
+            dias_periodo = 7
+        else:  # freq == "M"
+            # Para mensual, extraemos días en mes desde el índice
+            dias_periodo = pred_vol_agg.index.to_series().dt.days_in_month
+
+        # Ocupación pronosticada (%) = (volumen_agrupado / (total_habs * días_periodo)) * 100
+        ocup_pred = pred_vol_agg / (total_habs * dias_periodo) * 100
+
         fig_occ.add_trace(go.Scatter(
-            x=ocup_pred.index, y=ocup_pred.values,
+            x=ocup_pred.index,
+            y=ocup_pred.values,
             mode='lines',
             name='Ocupación Pronosticada',
             line=dict(color=filters.PRIMARY_COLOR, dash='dash')
@@ -394,10 +410,26 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
         line=dict(color='lightgrey')
     ))
     if not df_pred.empty:
-        adr_glob = kpis['global']['adr']
-        rp_pred = adr_glob * (ocup_pred / 100)
+        # Usar la misma agregación de volumen pronosticado
+        pred_vol_agg = df_pred['yhat'].resample(freq).sum()
+
+        # Reutilizar dias_periodo calculados arriba
+        if freq == "D":
+            dias_periodo = 1
+        elif freq == "W":
+            dias_periodo = 7
+        else:
+            dias_periodo = pred_vol_agg.index.to_series().dt.days_in_month
+
+        # Ocupación pronosticada en fracción (sin %) para RevPAR
+        ocup_frac = (pred_vol_agg / (total_habs * dias_periodo))
+
+        # RevPAR pronosticado = ADR_global * ocup_frac
+        rp_pred = adr_glob * ocup_frac
+
         fig_rp.add_trace(go.Scatter(
-            x=rp_pred.index, y=rp_pred.values,
+            x=rp_pred.index,
+            y=rp_pred.values,
             mode='lines',
             name='RevPAR Pronosticado',
             line=dict(color=filters.PRIMARY_COLOR, dash='dash')
@@ -415,6 +447,7 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
     )
 
     # 8) Retornar todas las figuras y el texto del label-fechas
+    print(f"[DEBUG RETURN] texto_rango_label = {texto_rango_label}")
     return (
         fig_vol,
         fig_occ,

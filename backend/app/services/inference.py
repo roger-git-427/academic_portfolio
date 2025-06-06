@@ -131,7 +131,7 @@ async def infer_model(request: InferenceRequest, db: AsyncSession) -> (List[Pred
     # --------------------------------------------------------
     # 4) PREPARAR DATOS PARA PROPHET Y HACER PREDICCIÓN
     # --------------------------------------------------------
-    forecast_periods = 60
+    forecast_periods = 90
     df_future, regressors = prepare_prophet_features_for_inference(df_features, forecast_periods)
 
     model_path = "app/utils/models/prophet_model.pkl"
