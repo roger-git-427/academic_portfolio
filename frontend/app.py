@@ -272,64 +272,66 @@ def actualizar_dashboard(fecha_offset, empresas, canales, agencias, freq):
     )
 
     # --------------------------------------
-    # 5) Reconstruir la ventana de los últimos 4 meses (en función de 'ed')
+    # 5) Reconstruir la ventana a base de días
     # --------------------------------------
-    #     Queremos entrenar el modelo con datos de check-in de
-    #     [window_start, three_months_end).
     df_raw = df_reservas.copy()
     df_raw['fecha_checkin'] = pd.to_datetime(df_raw['fecha_checkin'], errors='coerce')
 
-    window_end   = pd.to_datetime(ed)                             # punto final = ed (según slider)
-    window_start = window_end - pd.DateOffset(months=4)            # cuatro meses antes
-    three_months_end = window_start + pd.DateOffset(months=3)      # de esos 4 meses, tomamos solo los primeros 3
+    # Tomamos como punto final la fecha “ed” que viene del slider:
+    window_end = pd.to_datetime(ed)
 
+    # Restamos 110 días para definir el inicio de la ventana completa:
+    window_start = window_end - pd.Timedelta(days=180)
+
+    # De esos 110 días de datos, solo queremos mandar los primeros 90 días:
+    train_end = window_start + pd.Timedelta(days=160)
+    print(f"[DEBUG] Ventana de predicción: {window_start:%Y-%m-%d} a {train_end:%Y-%m-%d}")
+
+    # Filtramos reservas con check-in en [window_start, train_end)
     df_pred_window = df_raw[
         (df_raw['fecha_checkin'] >= window_start) &
-        (df_raw['fecha_checkin'] <  three_months_end)
+        (df_raw['fecha_checkin'] <  train_end)
     ].copy()
 
-    # =====≪ Formatear todas las columnas datetime a "%Y%m%d" para JSON ≫=====
+    # =====≪ Formatear columnas datetime a "%Y%m%d" para JSON ≫=====
     for col in df_pred_window.select_dtypes(include=['datetime64']).columns:
         df_pred_window[col] = df_pred_window[col].dt.strftime('%Y%m%d')
     if 'h_fec_reg' in df_pred_window.columns:
-        df_pred_window['h_fec_reg'] = pd.to_datetime(df_pred_window['h_fec_reg'], errors='coerce').dt.strftime('%Y%m%d')
+        df_pred_window['h_fec_reg'] = (
+            pd.to_datetime(df_pred_window['h_fec_reg'], errors='coerce')
+            .dt.strftime('%Y%m%d')
+        )
 
-    # Reemplazar inf/-inf → NaN → None (para que JSON los tome como null)
+    # Reemplazar inf/-inf → NaN → None
     df_pred_window = df_pred_window.replace([np.inf, -np.inf], np.nan)
     df_pred_window = df_pred_window.where(pd.notnull(df_pred_window), None)
 
     # --------------------------------------
-    # 6) Llamar a /predict con la nueva ventana y pavimentar el resultado
+    # 6) Llamada a /predict con los primeros 90 días
     # --------------------------------------
     try:
-        payload = { "data": df_pred_window.to_dict(orient='records') }
+        payload = {"data": df_pred_window.to_dict(orient='records')}
         resp = requests.post(f"{API_BASE_URL}/predict", json=payload)
         resp.raise_for_status()
 
-        # FastAPI devuelve { "predictions": [ { "ds": "...", "yhat": ..., ... }, … ] }
         resp_json = resp.json()
         lista_predicciones = resp_json["predictions"]
-
-        # Pasamos la lista de dicts a DataFrame
         df_pred = pd.DataFrame(lista_predicciones)
         df_pred['ds'] = pd.to_datetime(df_pred['ds'])
         df_pred.set_index('ds', inplace=True)
 
-        print(f"[DEBUG /predict] Respuesta de la API: {len(df_pred)} predicciones obtenidas.")
-
+        print(f"[DEBUG /predict] {len(df_pred)} predicciones obtenidas.")
     except requests.exceptions.HTTPError as http_err:
-        # Si nos devuelven un 422, imprimimos detalle
         if resp.status_code == 422:
             print("[ERROR /predict] Código 422 – detalles del error de validación:")
             print(resp.json())
         else:
             print(f"[ERROR /predict] HTTP {resp.status_code} – {resp.text}")
         df_pred = pd.DataFrame(columns=['yhat', 'yhat_lower', 'yhat_upper'])
-
     except Exception as e:
         print("[ERROR /predict] No se pudo obtener predicción:", str(e))
         df_pred = pd.DataFrame(columns=['yhat', 'yhat_lower', 'yhat_upper'])
-
+        
     # --------------------------------------
     # 7) Superponer la curva de pronóstico sobre los gráficos históricos
     # --------------------------------------
