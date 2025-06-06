@@ -3,8 +3,8 @@ import os
 from dotenv import load_dotenv
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output
-import utils.data_extractor_v2 as de  # Use the updated data extractor
-import components.filters as filters
+import app.utils.data_extractor_v2 as de  # Use the updated data extractor
+import app.components.filters as filters
 import datetime as dt
 import plotly.graph_objects as go
 import plotly.express as px
@@ -20,7 +20,7 @@ load_dotenv()
 
 # Access environment variables
 api_base_url = os.getenv("API_BASE_URL")
-use_direct_db = os.getenv("USE_DIRECT_DB", "false").lower() == "true"
+use_direct_db = os.getenv("USE_DIRECT_DB", "true").lower() == "true"
 
 # ---------------------------------------------------
 # Initialize data loading with error handling
