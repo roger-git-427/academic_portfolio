@@ -12,6 +12,12 @@ import pandas as pd
 import requests
 import numpy as np
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the API_BASE_URL environment variable
+api_base_url = os.getenv("API_BASE_URL")
+print(f"API_BASE_UR:{api_base_url}")
 # ---------------------------------------------------
 # Cargar datos al iniciar la aplicación
 # ---------------------------------------------------
@@ -24,11 +30,6 @@ df_agencias  = data['agencias']
 # ---------------------------------------------------
 # Configurar base URL de tu API
 # ---------------------------------------------------
-# Load environment variables from .env file
-load_dotenv()
-
-# Access the API_BASE_URL environment variable
-api_base_url = os.getenv("API_BASE_URL")
 
 # ---------------------------------------------------
 # Iniciar aplicación Dash

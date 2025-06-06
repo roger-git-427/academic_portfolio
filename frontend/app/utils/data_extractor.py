@@ -17,6 +17,7 @@ load_dotenv()
 
 # Access the API_BASE_URL environment variable
 api_base_url = os.getenv("API_BASE_URL")
+print(f"API_BASE_UR:{api_base_url}")
 
 @lru_cache(maxsize=1)
 def load_data(data_dir: Optional[Path] = None) -> Dict[str, pd.DataFrame]:
