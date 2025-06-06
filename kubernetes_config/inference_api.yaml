@@ -40,37 +40,37 @@ spec:
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
-                  name: secret-from-csi
+                  name: db-host
                   key: db-host
             - name: DB_PORT
               valueFrom:
                 secretKeyRef:
-                  name: secret-from-csi
+                  name: db-port
                   key: db-port
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: secret-from-csi
+                  name: db-user
                   key: db-user
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: secret-from-csi
+                  name: db-password
                   key: db-password
             - name: DB_NAME
               valueFrom:
                 secretKeyRef:
-                  name: secret-from-csi
+                  name: db-name
                   key: db-name
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: secret-from-csi
+                  name: secret-key
                   key: secret-key
             - name: ACCESS_TOKEN_EXPIRE_MINUTES
               valueFrom:
                 secretKeyRef:
-                  name: secret-from-csi
+                  name: access-token-expire-minutes
                   key: access-token-expire-minutes
           ports:
             - containerPort: 8000
