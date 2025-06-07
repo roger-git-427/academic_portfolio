@@ -89,16 +89,20 @@ Contiene el pipeline completo de preprocesamiento de datos y entrenamiento de mo
 
 ## 🚀 Flujo de Trabajo
 Preprocesamiento y Entrenamiento
-Ejecutar el pipeline Kedro (en my-kedro-project/final-tca-pipeline-reto) para generar modelos y artefactos.
+
+  Ejecutar el pipeline Kedro (en my-kedro-project/final-tca-pipeline-reto) para generar modelos y artefactos.
 
 Backend Principal
-Levantar backend para la API general.
+
+  Levantar backend para la API general.
 
 Dashboard
-Levantar frontend para la visualización interactiva.
+
+  Levantar frontend para la visualización interactiva.
 
 Despliegue
-Aplicar los manifiestos de kubernetes_config después de construir imágenes Docker con los Dockerfile.
+
+  Aplicar los manifiestos de kubernetes_config después de construir imágenes Docker con los Dockerfile.
 
 ✅ Requisitos Generales
 Python >= 3.11
