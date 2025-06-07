@@ -88,21 +88,22 @@ Incluye los manifiestos YAML para desplegar los servicios en un clúster de Kube
 Contiene el pipeline completo de preprocesamiento de datos y entrenamiento de modelos con Kedro, organizado en nodos y pipelines, revisar la versión final en final-tca-pipeline-reto.
 
 ## 🚀 Flujo de Trabajo
-Preprocesamiento y Entrenamiento
+**Preprocesamiento y Entrenamiento**
 
   Ejecutar el pipeline Kedro (en my-kedro-project/final-tca-pipeline-reto) para generar modelos y artefactos.
 
-Backend Principal
+**Backend Principal**
 
   Levantar backend para la API general.
 
-Dashboard
+**Dashboard**
 
   Levantar frontend para la visualización interactiva.
 
-Despliegue
+**Despliegue**
 
   Aplicar los manifiestos de kubernetes_config después de construir imágenes Docker con los Dockerfile.
 
 ✅ Requisitos Generales
+
 Python >= 3.11
