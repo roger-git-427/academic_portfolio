@@ -21,12 +21,47 @@ spec:
         ia/project: tca_reto
         ia/environment: alpha
     spec:
+      # 1. Definimos el volumen CSI para extraer los secretos de Azure Key Vault
+      volumes:
+        - name: secrets-store-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "azure-kv-provider"
+
       containers:
         - name: frontend-dash
           image: dockercitosregistry.azurecr.io/frontend-app:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8050
+
+          # 2. Montamos el volumen en /mnt/secrets-store 
+          volumeMounts:
+            - name: secrets-store-inline
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+              
+          env:    
+            - name: API_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: api-base-url
+                  key: api-base-url
+
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: database-url
+
+            - name: USE_DIRECT_DB
+              valueFrom:
+                secretKeyRef:
+                  name: use-direct-db
+                  key: use-direct-db
+
           resources:
             requests:
               memory: 512Mi
@@ -34,17 +69,19 @@ spec:
             limits:
               memory: 1Gi
               cpu: 500m
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
   namespace: development
-  name: frontend-dash-svc
+  name: frontend-dash
   labels:
     ia/team: dockercitos
     ia/project: tca_reto
     ia/environment: alpha
 spec:
+  type: LoadBalancer
   selector:
     app: frontend-dash
   ports:
