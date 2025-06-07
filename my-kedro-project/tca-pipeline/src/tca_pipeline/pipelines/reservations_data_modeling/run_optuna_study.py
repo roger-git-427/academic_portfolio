@@ -32,7 +32,7 @@ optuna_params = params["optuna_search_space"]
 optuna_config = params["optuna_config"]
 
 # 2️⃣ SELECT MODEL TO TUNE
-MODEL_TO_TUNE = "gru"  # <<< choose: "transformer", "gru", "lstm"
+MODEL_TO_TUNE = "transformer"  # <<< choose: "transformer", "gru", "lstm"
 
 # 3️⃣ LOAD DATA
 configure_project("tca_pipeline")

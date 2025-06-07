@@ -40,22 +40,33 @@ def create_pipeline(**kwargs) -> Pipeline:
 
         node(
             train_transformer,
-            inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.transformer", "scaler"],
+            inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.transformer", "scaler", "arr", "df_features", "features_list"],
             outputs=["transformer_mae", "transformer_rmse", "transformer_wmape"],
             name="train_transformer"
         ),
+
         node(
-            func=train_gru,
-            inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.gru", "scaler"],
+            train_gru,
+            inputs=[
+                "X_train", "y_train", "X_test", "y_test",
+                "params:modeling.gru",
+                "scaler",
+                "arr",
+                "df_features",
+                "features_list"
+            ],
             outputs=["gru_mae", "gru_rmse", "gru_wmape"],
             name="train_gru"
         ),
+
+
         node(
             train_lstm,
-            inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.lstm", "scaler"],
+            inputs=["X_train", "y_train", "X_test", "y_test", "params:modeling.lstm", "scaler", "arr", "df_features", "features_list"],
             outputs=["lstm_mae", "lstm_rmse", "lstm_wmape"],
             name="train_lstm"
         ),
+
         node(
             train_prophet,
             inputs=["df_features", "params:modeling.prophet"],

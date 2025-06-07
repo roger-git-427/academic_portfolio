@@ -15,6 +15,7 @@ import mlflow.pytorch
 import mlflow.prophet
 from prophet import Prophet
 import holidays
+import random 
 from typing import Tuple
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import matplotlib.pyplot as plt
@@ -22,10 +23,72 @@ import matplotlib.pyplot as plt
 # from neuralforecast.models import TimesNet
 # from neuralforecast.losses.pytorch import MAE, MSE
 
-
+FASE_EXPERIMENTAL = False
+EPOCAS_EXP = 10
+EPOCAS_PIPELINE = 250
 # ──────────────────────────────────────────────
+FASE_EXPERIMENTAL = EPOCAS_EXP if FASE_EXPERIMENTAL else EPOCAS_PIPELINE
+
 # MODEL DEFINITIONS
 # ──────────────────────────────────────────────
+# src/tca_pipeline/pipelines/reservations_data_modeling/utils.py
+
+def recursive_forecast(model, last_X_window, scaler, df_features, last_date, features, horizon=90):
+    window = last_X_window.copy()
+    preds = []
+    current_date = last_date
+
+    for step in range(horizon):
+        x_input = torch.tensor(window).float().unsqueeze(0)
+        y_pred_scaled = model(x_input).detach().cpu().numpy().flatten()[0]
+        y_pred_orig = inverse_transform_target(scaler, [y_pred_scaled])[0]
+
+        preds.append(y_pred_orig)
+
+        # Simulate new_row
+        new_row = {}
+        # Aquí calculas de nuevo todos tus features (igual que ya tienes)
+        new_row["day_of_week"] = current_date.dayofweek
+        new_row["month"] = current_date.month
+        new_row["is_weekend"] = int(current_date.dayofweek in [5, 6])
+        mx_holidays = holidays.Mexico()
+        new_row["is_holiday"] = int(current_date in mx_holidays)
+        new_row["day_of_year"] = current_date.dayofyear
+        new_row["sin_day"] = np.sin(2 * np.pi * new_row["day_of_year"] / 365)
+        new_row["cos_day"] = np.cos(2 * np.pi * new_row["day_of_year"] / 365)
+
+        # Lags
+        new_row["lag_1"] = preds[-1]
+        new_row["lag_7"] = preds[-7] if len(preds) >= 7 else preds[-1]
+        new_row["lag_30"] = preds[-30] if len(preds) >= 30 else preds[-1]
+        new_row["lag_28"] = preds[-28] if len(preds) >= 28 else preds[-1]
+        new_row["lag_364"] = preds[-1]  # fallback
+
+        # Rolling
+        new_row["rolling_mean_7"] = np.mean(preds[-7:]) if len(preds) >= 7 else preds[-1]
+        new_row["rolling_trend_7"] = preds[-1] - new_row["rolling_mean_7"]
+        new_row["rolling_mean_21"] = np.mean(preds[-21:]) if len(preds) >= 21 else preds[-1]
+        new_row["rolling_std_30"] = np.std(preds[-30:]) if len(preds) >= 30 else 0
+        new_row["rolling_std_7"] = np.std(preds[-7:]) if len(preds) >= 7 else 0
+        new_row["rolling_std_14"] = np.std(preds[-14:]) if len(preds) >= 14 else 0
+
+        # Compose array → usar la lista de features que realmente usaste
+        new_row_array = np.array([new_row[feat] for feat in features])
+
+        # Scale new_row
+        n_features = scaler.n_features_in_
+        dummy_input = np.zeros((1, n_features))
+        dummy_input[0, :-1] = new_row_array
+        dummy_input[0, -1] = y_pred_orig
+        new_row_scaled = scaler.transform(dummy_input)[0, :-1]
+
+        # Update window
+        window = np.vstack([window[1:], new_row_scaled])
+
+        # Advance date
+        current_date += pd.Timedelta(days=1)
+
+    return preds
 
 
 def plot_forecast_vs_actual(y_true, y_pred, title="Forecast vs Actual", save_path=None):
@@ -234,14 +297,11 @@ def _compute_wmape(actual, pred):
     return np.sum(np.abs(actual - pred)) / np.sum(np.abs(actual))
 
 
-def train_transformer(
-    X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None
-) -> tuple[float, float, float]:
-    """
-    1) Load best Optuna params if they exist
-    2) Train a TransformerForecaster
-    3) Log metrics to MLflow, save the final model with pickle
-    """
+# ──────────────────────────────────────────────
+# 4️ Transformer training
+# ──────────────────────────────────────────────
+
+def train_transformer(X_train, y_train, X_test, y_test, cfg, scaler, arr, df_features, features, seed=42, save_model_path=None) -> tuple[float, float, float]:
     import random
     random.seed(seed)
     np.random.seed(seed)
@@ -256,8 +316,8 @@ def train_transformer(
         with open(best_params_path, "r") as f:
             best_params = yaml.safe_load(f)
         cfg.update(best_params)
-        cfg["epochs"] = 250
-        print(f"[DEBUG][train_transformer] Using BEST params + epochs={cfg['epochs']}")
+        cfg["epochs"] = FASE_EXPERIMENTAL
+        print(f"Using BEST params + epochs={cfg['epochs']}")
     else:
         print(f"[DEBUG][train_transformer] No best params found → using cfg from parameters.yml")
 
@@ -273,16 +333,12 @@ def train_transformer(
 
         # — Instantiate model —
         model = TransformerForecaster(
-            input_dim=cfg["input_dim"],
-            d_model=cfg["d_model"],
-            nhead=cfg["nhead"],
-            num_layers=cfg["num_layers"],
-        ).to("cpu")
+    input_dim=cfg["input_dim"],
+    d_model=cfg["d_model"],
+    nhead=cfg["nhead"],
+    num_layers= cfg["num_layers"]
+).to('cpu')
 
-        # — Debug: print model input projection dims —
-        expected_in = model.input_proj.in_features
-        print(f"[DEBUG][train_transformer] Created TransformerForecaster with input_proj.in_features = {expected_in}, "
-              f"output dimension = {model.fc.out_features}")
 
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
         loss_fn = nn.MSELoss()
@@ -298,7 +354,7 @@ def train_transformer(
             if epoch % 50 == 0 or epoch == cfg["epochs"] - 1:
                 print(f"[DEBUG][train_transformer] Epoch {epoch+1}/{cfg['epochs']}: loss={loss.item():.4f}")
 
-        # — Evaluation —
+        # Eval on test set
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
@@ -333,30 +389,117 @@ def train_transformer(
             pickle.dump(model, f)
         print(f"[DEBUG][train_transformer] Saved Transformer model (pickle) to: {final_path}")
 
-        # — Log model artifact to MLflow —
         mlflow.pytorch.log_model(model, "transformer_model")
+
+        # Plot full historical
+        print("✅ Generating Historical + Prediction + 90d plot...")
+
+        # Target full
+        target_full = inverse_transform_target(scaler, arr[:, -1])
+
+        # Preds full aligned
+        preds_full = np.full(shape=target_full.shape, fill_value=np.nan)
+
+        test_size = len(y_test)
+        train_size = len(arr) - test_size
+        preds_full[train_size:] = preds_orig
 
         # Plot
         plot_path = "data/06_models/transformer_forecast.png"
-        plot_forecast_vs_actual(acts_orig, preds_orig, title="Transformer Forecast vs Actual", save_path=plot_path)
+        plot_forecast_vs_actual(
+            target_full, preds_full,
+            f"{model_type.upper()} — Histórico + Predicción + 90d Forecast",
+            save_path=plot_path
+        )
         mlflow.log_artifact(plot_path)
 
+        # Recursive 90d
+        print("Running recursive forecast for 90 days...")
+
+        window_size = cfg["window_size"]
+
+        last_X_test_window = X_test[-1].numpy()  # shape (window_size, n_features)
+        initial_window = last_X_test_window
+
+        df_features["Fecha"] = pd.to_datetime(df_features["Fecha"])
+
+        dates_full = df_features["Fecha"].values
+        test_size = len(y_test)
+        train_size = len(arr) - test_size
+        dates_test = dates_full[train_size:]
+        last_test_date = pd.to_datetime(dates_test[-1])
+
+        preds_90 = recursive_forecast(
+            model,
+            initial_window,
+            scaler,
+            df_features,
+            last_test_date,
+            features,
+            horizon=90
+        )
+
+        # Log 90d metrics
+        for i, val in enumerate(preds_90):
+            mlflow.log_metric(f"transformer_recursive_day_{i+1}", val)
+
+        # Combined Plot
+        fig, ax1 = plt.subplots(figsize=(14, 7))
+
+        ax1.plot(range(len(acts_orig)), acts_orig, label="Actual", color="blue", linewidth=2)
+        ax1.plot(range(len(preds_orig)), preds_orig, label="Forecast", color="orange", linewidth=2)
+
+        ax1.set_xlabel("Time Step (Test Set + Future)", fontsize=12)
+        ax1.set_ylabel("Target / Predicted Occupancy", fontsize=12)
+        ax1.set_title("Transformer — Test Forecast vs Actual AND Recursive 90-Day Forecast Combined", fontsize=14)
+        ax1.grid(alpha=0.3)
+
+        ax1.plot(range(len(acts_orig), len(acts_orig) + len(preds_90)),
+                 preds_90, marker='o', linestyle='-', color='green', linewidth=2, label="Transformer 90d Recursive Forecast")
+
+        ax1.legend(loc="best", fontsize=12)
+
+        combined_plot_path = "data/06_models/transformer_combined_forecast.png"
+        plt.savefig(combined_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(combined_plot_path)
+
+        print(f"✅ Combined plot saved to {combined_plot_path}")
+
+        # Historical + 90d plot
+        plt.figure(figsize=(14, 7))
+
+        dates_train = dates_full[:train_size]
+        dates_test = dates_full[train_size:]
+
+        plt.plot(dates_test, acts_orig, label="Actual", color="brown", linewidth=2)
+        plt.plot(dates_test, preds_orig, label="Predicción", color="gray", linestyle="--", linewidth=2)
+
+        future_90_dates = pd.date_range(start=last_test_date + pd.Timedelta(days=1), periods=90)
+
+        plt.plot(future_90_dates, preds_90, marker='o', linestyle='-', color='green', linewidth=2, label="90d Forecast")
+
+        plt.xlabel("Fecha", fontsize=12)
+        plt.ylabel("target_habitaciones", fontsize=12)
+        plt.title(f"{model_type.upper()} — Histórico + Predicción + 90d Forecast", fontsize=14)
+        plt.grid(alpha=0.3)
+        plt.legend(loc="best", fontsize=12)
+
+        historical_plot_path = f"data/06_models/{model_type}_historical_prediction_plot.png"
+        plt.savefig(historical_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(historical_plot_path)
+
+        print(f"✅ {model_type.upper()} Historical + Prediction + 90d plot saved to {historical_plot_path}")
+
         return mae_orig, rmse_orig, wmape_orig
+
+
 
 
 
 # ──────────────────────────────────────────────
 # 5️ GRU training (with debug prints + pickle saving)
 # ──────────────────────────────────────────────
-
-def train_gru(
-    X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None
-) -> tuple[float, float, float]:
-    """
-    1) Load best Optuna params if they exist
-    2) Train a GRUForecaster
-    3) Log metrics to MLflow, save the final model with pickle
-    """
+def train_gru(X_train, y_train, X_test, y_test, cfg, scaler, arr, df_features, features, seed=42, save_model_path=None) -> tuple[float, float, float]:
     import random
     random.seed(seed)
     np.random.seed(seed)
@@ -371,8 +514,8 @@ def train_gru(
         with open(best_params_path, "r") as f:
             best_params = yaml.safe_load(f)
         cfg.update(best_params)
-        cfg["epochs"] = 250
-        print(f"[DEBUG][train_gru] Using BEST params + epochs={cfg['epochs']}")
+        cfg["epochs"] = FASE_EXPERIMENTAL
+        print(f"Using BEST params + epochs={cfg['epochs']}")
     else:
         print(f"[DEBUG][train_gru] No best params found → using cfg from parameters.yml")
 
@@ -409,6 +552,7 @@ def train_gru(
             if epoch % 50 == 0 or epoch == cfg["epochs"] - 1:
                 print(f"[DEBUG][train_gru] Epoch {epoch+1}/{cfg['epochs']}: loss={loss.item():.4f}")
 
+        # Eval on test set
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
@@ -447,14 +591,96 @@ def train_gru(
         # Log model to MLflow
         mlflow.pytorch.log_model(model, "gru_model")
 
-        # Plot
+        # Plot simple
         plot_path = "data/06_models/gru_forecast.png"
         plot_forecast_vs_actual(acts_orig, preds_orig, title="GRU Forecast vs Actual", save_path=plot_path)
         mlflow.log_artifact(plot_path)
 
+        # Recursive 90d
+        print("Running recursive forecast for 90 days...")
+
+        window_size = cfg["window_size"]
+
+        last_X_test_window = X_test[-1].numpy()
+        initial_window = last_X_test_window
+
+        df_features["Fecha"] = pd.to_datetime(df_features["Fecha"])
+
+        dates_full = df_features["Fecha"].values
+        test_size = len(y_test)
+        train_size = len(arr) - test_size
+        dates_test = dates_full[train_size:]
+        last_test_date = pd.to_datetime(dates_test[-1])
+
+        preds_90 = recursive_forecast(
+            model,
+            initial_window,
+            scaler,
+            df_features,
+            last_test_date,
+            features,
+            horizon=90
+        )
+
+        # Log 90d
+        for i, val in enumerate(preds_90):
+            mlflow.log_metric(f"gru_recursive_day_{i+1}", val)
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(range(1, 91), preds_90, marker='o', label="GRU 90d Forecast")
+        plt.xlabel("Day")
+        plt.ylabel("Predicted Occupancy")
+        plt.title("GRU Recursive 90-Day Forecast")
+        plt.legend()
+        plt.grid()
+        recursive_plot_path = "data/06_models/gru_recursive_90d_forecast.png"
+        plt.savefig(recursive_plot_path)
+        mlflow.log_artifact(recursive_plot_path)
+
+        # Combined plot
+        fig, ax1 = plt.subplots(figsize=(14, 7))
+
+        ax1.plot(range(len(acts_orig)), acts_orig, label="Actual", color="blue", linewidth=2)
+        ax1.plot(range(len(preds_orig)), preds_orig, label="Forecast", color="orange", linewidth=2)
+
+        ax1.plot(range(len(acts_orig), len(acts_orig) + len(preds_90)),
+                 preds_90, marker='o', linestyle='-', color='green', linewidth=2, label="GRU 90d Recursive Forecast")
+
+        ax1.set_xlabel("Time Step (Test Set + Future)", fontsize=12)
+        ax1.set_ylabel("Target / Predicted Occupancy", fontsize=12)
+        ax1.set_title("GRU — Test Forecast vs Actual AND Recursive 90-Day Forecast Combined", fontsize=14)
+        ax1.grid(alpha=0.3)
+        ax1.legend(loc="best", fontsize=12)
+
+        combined_plot_path = "data/06_models/gru_combined_forecast.png"
+        plt.savefig(combined_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(combined_plot_path)
+
+        print(f"✅ Combined plot saved to {combined_plot_path}")
+
+        # Historical + 90d
+        print("✅ Generating Historical + Prediction + 90d plot...")
+
+        target_full_scaled = arr[:, -1]
+        target_full = inverse_transform_target(scaler, target_full_scaled)
+
+        preds_full = np.full(shape=target_full.shape, fill_value=np.nan)
+        preds_full[-len(preds_orig):] = preds_orig
+
+        historical_plot_path = f"data/06_models/{model_type}_historical_prediction_plot.png"
+        plot_forecast_vs_actual(
+            target_full,
+            preds_full,
+            f"{model_type.upper()} — Histórico + Predicción + 90d Forecast",
+            historical_plot_path
+        )
+        mlflow.log_artifact(historical_plot_path)
+
+        print(f"✅ {model_type.upper()} Historical + Prediction + 90d plot saved to {historical_plot_path}")
+
         return mae_orig, rmse_orig, wmape_orig
 
-def train_lstm(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, save_model_path=None) -> tuple[float, float, float]:
+def train_lstm(X_train, y_train, X_test, y_test, cfg, scaler, arr, df_features, features, seed=42, save_model_path=None) -> tuple[float, float, float]:
     import random
     random.seed(seed)
     np.random.seed(seed)
@@ -469,13 +695,10 @@ def train_lstm(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, sav
             best_params = yaml.safe_load(f)
 
         cfg.update(best_params)
-        cfg["epochs"] = 250
+        cfg["epochs"] = FASE_EXPERIMENTAL
         print(f"Using BEST params + epochs={cfg['epochs']}")
     else:
         print(f"⚠️ No best params found → using cfg from parameters.yml")
-
-    cfg["input_dim"] = X_train.shape[-1]
-    print(f"👉 LSTM input_dim = {cfg['input_dim']}")
 
     with mlflow.start_run(run_name="LSTM", nested=True):
         mlflow.log_params(cfg)
@@ -497,7 +720,7 @@ def train_lstm(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, sav
                 loss.backward()
                 optimizer.step()
 
-        # Eval
+        # Eval on test set
         model.eval()
         preds, acts = [], []
         with torch.no_grad():
@@ -522,6 +745,7 @@ def train_lstm(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, sav
             "lstm_WMAPE_original": wmape_orig
         })
 
+        # Save model
         os.makedirs("data/06_models", exist_ok=True)
         if save_model_path:
             print(f"✅ Saving model to {save_model_path}")
@@ -538,31 +762,115 @@ def train_lstm(X_train, y_train, X_test, y_test, cfg: dict, scaler, seed=42, sav
 
         mlflow.pytorch.log_model(model, "lstm_model")
 
+        # Plot full historical
+        print("✅ Generating Historical + Prediction + 90d plot...")
+
+        # Target full
+        target_full = inverse_transform_target(scaler, arr[:, -1])
+
+        # Preds full aligned
+        preds_full = np.full(shape=target_full.shape, fill_value=np.nan)
+
+        test_size = len(y_test)
+        train_size = len(arr) - test_size
+        preds_full[train_size:] = preds_orig
+
         # Plot
         plot_path = "data/06_models/lstm_forecast.png"
-        plot_forecast_vs_actual(acts_orig, preds_orig, title="LSTM Forecast vs Actual", save_path=plot_path)
+        plot_forecast_vs_actual(
+            target_full, preds_full,
+            f"{model_type.upper()} — Histórico + Predicción + 90d Forecast",
+            save_path=plot_path
+        )
         mlflow.log_artifact(plot_path)
+
+        # Recursive 90d
+        print("Running recursive forecast for 90 days...")
+
+        window_size = cfg["window_size"]
+
+        last_X_test_window = X_test[-1].numpy()  # shape (window_size, n_features)
+        initial_window = last_X_test_window
+
+        df_features["Fecha"] = pd.to_datetime(df_features["Fecha"])
+
+        dates_full = df_features["Fecha"].values
+        test_size = len(y_test)
+        train_size = len(arr) - test_size
+        dates_test = dates_full[train_size:]
+        last_test_date = pd.to_datetime(dates_test[-1])
+
+        preds_90 = recursive_forecast(
+            model,
+            initial_window,
+            scaler,
+            df_features,
+            last_test_date,
+            features,
+            horizon=90
+        )
+
+        # Log 90d metrics
+        for i, val in enumerate(preds_90):
+            mlflow.log_metric(f"lstm_recursive_day_{i+1}", val)
+
+        # Combined Plot
+        fig, ax1 = plt.subplots(figsize=(14, 7))
+
+        ax1.plot(range(len(acts_orig)), acts_orig, label="Actual", color="blue", linewidth=2)
+        ax1.plot(range(len(preds_orig)), preds_orig, label="Forecast", color="orange", linewidth=2)
+
+        ax1.set_xlabel("Time Step (Test Set + Future)", fontsize=12)
+        ax1.set_ylabel("Target / Predicted Occupancy", fontsize=12)
+        ax1.set_title("LSTM — Test Forecast vs Actual AND Recursive 90-Day Forecast Combined", fontsize=14)
+        ax1.grid(alpha=0.3)
+
+        ax1.plot(range(len(acts_orig), len(acts_orig) + len(preds_90)),
+                 preds_90, marker='o', linestyle='-', color='green', linewidth=2, label="LSTM 90d Recursive Forecast")
+
+        ax1.legend(loc="best", fontsize=12)
+
+        combined_plot_path = "data/06_models/lstm_combined_forecast.png"
+        plt.savefig(combined_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(combined_plot_path)
+
+        print(f"✅ Combined plot saved to {combined_plot_path}")
+
+        # Historical + 90d plot
+        plt.figure(figsize=(14, 7))
+
+        dates_train = dates_full[:train_size]
+        dates_test = dates_full[train_size:]
+
+        plt.plot(dates_test, acts_orig, label="Actual", color="brown", linewidth=2)
+        plt.plot(dates_test, preds_orig, label="Predicción", color="gray", linestyle="--", linewidth=2)
+
+        future_90_dates = pd.date_range(start=last_test_date + pd.Timedelta(days=1), periods=90)
+
+        plt.plot(future_90_dates, preds_90, marker='o', linestyle='-', color='green', linewidth=2, label="90d Forecast")
+
+        plt.xlabel("Fecha", fontsize=12)
+        plt.ylabel("target_habitaciones", fontsize=12)
+        plt.title(f"{model_type.upper()} — Histórico + Predicción + 90d Forecast", fontsize=14)
+        plt.grid(alpha=0.3)
+        plt.legend(loc="best", fontsize=12)
+
+        historical_plot_path = f"data/06_models/{model_type}_historical_prediction_plot.png"
+        plt.savefig(historical_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(historical_plot_path)
+
+        print(f"✅ {model_type.upper()} Historical + Prediction + 90d plot saved to {historical_plot_path}")
 
         return mae_orig, rmse_orig, wmape_orig
 
 
-# ──────────────────────────────────────────────
-# 6️ Prophet training (with debug prints)
-# ──────────────────────────────────────────────
+
+
 
 def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, float]:
-    """
-    1) Train a Prophet model (with external regressors)
-    2) Log metrics to MLflow, save the final model via pickle
-    """
-    import random
-    random.seed(20)
-    np.random.seed(20)
-    torch.manual_seed(20)
-
-    print(f"[DEBUG][train_prophet] Input df_features shape: {df_features.shape}")
-    print(f"[DEBUG][train_prophet] Prophet config (periods): {cfg['periods']}")
-
+    random.seed(42)
+    np.random.seed(42)
+    torch.manual_seed(42)
     with mlflow.start_run(run_name="Prophet", nested=True):
         mlflow.log_params(cfg)
 
@@ -588,38 +896,28 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
         df_train = df_train.dropna(subset=regressors + ["y", "ds"]).copy()
         df_test  = df_test.dropna(subset=regressors + ["y", "ds"]).copy()
 
-        print(f"[DEBUG][train_prophet] df_train shape (after dropna): {df_train.shape}")
-        print(f"[DEBUG][train_prophet] df_test shape (after dropna): {df_test.shape}")
-
-        # Initialize and add regressors
         m = Prophet(
             weekly_seasonality=True,
             yearly_seasonality=True,
             daily_seasonality=False,
             seasonality_mode='multiplicative'
         )
-
         for reg in regressors:
             m.add_regressor(reg)
 
-        # Fit model
         m.fit(df_train)
         print(f"[DEBUG][train_prophet] Completed Prophet.fit()")
 
-        # Prepare future DataFrame and predict
-        future = df_test[["ds"] + regressors]
-        forecast = m.predict(future)
-        print(f"[DEBUG][train_prophet] Completed Prophet.predict(), forecast shape: {forecast.shape}")
+        # Test set forecast
+        future_test = df_test[["ds"] + regressors]
+        forecast_test = m.predict(future_test)
 
-        # Compute metrics
         y_true = df_test["y"].values
-        y_pred = forecast["yhat"].values
+        y_pred = forecast_test["yhat"].values
 
-        mae   = mean_absolute_error(y_true, y_pred)
-        rmse  = mean_squared_error(y_true, y_pred) ** 0.5
+        mae = mean_absolute_error(y_true, y_pred)
+        rmse = mean_squared_error(y_true, y_pred) ** 0.5
         wmape = _compute_wmape(y_true, y_pred)
-
-        print(f"[DEBUG][train_prophet] Evaluation MAE={mae:.4f}, RMSE={rmse:.4f}, WMAPE={wmape:.4f}")
 
         mlflow.log_metrics({
             "prophet_MAE": mae,
@@ -627,18 +925,46 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
             "prophet_WMAPE": wmape,
         })
 
-        # Log figures to MLflow
+        # Future forecast → 90 days
+        future_full = m.make_future_dataframe(periods=90)
+        future_full = future_full.merge(df_p[["ds"] + regressors], on="ds", how="left")
+        for col in regressors:
+            future_full[col] = future_full[col].ffill().bfill().fillna(0)
 
-        # Custom forecast plot — consistent with GRU / LSTM / SARIMA
-        plot_path = "data/06_models/prophet_forecast.png"
-        plot_forecast_vs_actual(y_true, y_pred, title="Prophet Forecast vs Actual", save_path=plot_path)
-        mlflow.log_artifact(plot_path)
+        forecast_90 = m.predict(future_full)
+                # FULL forecast already contains everything → train + test + future
+        forecast_full = forecast_90.copy()
 
-        # Keep components plot if you want
-        mlflow.log_figure(m.plot_components(forecast), "prophet_components.png")
+        # Add "y" column — for training part, match original y
+        # For future → it will be NaN
+        forecast_full = forecast_full.merge(df_p[["ds", "y"]], on="ds", how="left")
 
+        # Now just use this as df_full_plot:
+        df_full_plot = forecast_full[["ds", "y", "yhat"]]
 
-        # Save Prophet model via pickle
+        preds_90 = forecast_90["yhat"].values[-90:]
+        # Combined Plot (existing)
+        fig, ax1 = plt.subplots(figsize=(14, 7))
+
+        ax1.plot(range(len(y_true)), y_true, label="Actual", color="blue", linewidth=2)
+        ax1.plot(range(len(y_pred)), y_pred, label="Forecast", color="orange", linewidth=2)
+        ax1.plot(range(len(y_true), len(y_true) + len(preds_90)),
+                 preds_90, marker='o', linestyle='-', color='green', linewidth=2, label="Prophet 90d Recursive Forecast")
+
+        ax1.set_xlabel("Time Step (Test + Future)", fontsize=12)
+        ax1.set_ylabel("Target / Predicted Occupancy", fontsize=12)
+        ax1.set_title("Prophet — Test Forecast vs Actual AND Recursive 90-Day Forecast Combined", fontsize=14)
+        ax1.grid(alpha=0.3)
+        ax1.legend(loc="best", fontsize=12)
+
+        combined_plot_path = "data/06_models/prophet_combined_forecast.png"
+        plt.savefig(combined_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(combined_plot_path)
+
+        # Prophet components plot
+        mlflow.log_figure(m.plot_components(forecast_90), "prophet_components.png")
+
+        # Save Prophet model
         os.makedirs("data/06_models", exist_ok=True)
         prophet_path = "data/06_models/prophet_model.pkl"
         with open(prophet_path, "wb") as f:
@@ -647,24 +973,45 @@ def train_prophet(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, f
 
         mlflow.prophet.log_model(m, artifact_path="prophet_model")
 
-        return mae, rmse, wmape
-# ──────────────────────────────────────────────
-# 7️ SARIMA training
-# ──────────────────────────────────────────────
-def train_sarima(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, float]:
+        # 🚀 NEW PLOT: Historical + Prediction (date-based)
+        print("✅ Generating Prophet Historical + Prediction plot...")
+        # Prepare yhat for train:
 
-    # 👉 Prepare series
+        df_future_90 = forecast_90[["ds", "yhat"]].copy()
+        df_future_90 = df_future_90.tail(90)
+        df_future_90["y"] = np.nan  # No true y for future
+
+
+        plt.figure(figsize=(14, 7))
+        plt.plot(df_full_plot["ds"], df_full_plot["y"], label="Histórico", color="brown", linewidth=2)
+        plt.plot(df_full_plot["ds"], df_full_plot["yhat"], label="Predicción", color="gray", linestyle="--", linewidth=2)
+
+        plt.xlabel("Fecha", fontsize=12)
+        plt.ylabel("target_habitaciones", fontsize=12)
+        plt.title("Prophet — Histórico y Predicción", fontsize=14)
+        plt.grid(alpha=0.3)
+        plt.legend(loc="best", fontsize=12)
+
+        historical_plot_path = "data/06_models/prophet_historical_prediction_plot.png"
+        plt.savefig(historical_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(historical_plot_path)
+
+        print(f"✅ Prophet Historical + Prediction plot saved to {historical_plot_path}")
+
+        return mae, rmse, wmape
+
+
+
+def train_sarima(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, float]:
     df_p = df_features.rename(columns={"Fecha": "ds", "target_habitaciones": "y"})
-    df_p = df_p.set_index("ds").asfreq("D")  # Ensure daily frequency
-    df_p = df_p.fillna(method="ffill")  # Fill missing with forward fill
+    df_p = df_p.set_index("ds").asfreq("D")
+    df_p = df_p.fillna(method="ffill")
 
     series = df_p["y"]
 
-    # 👉 Split train/test
     train = series.iloc[:-cfg["periods"]]
     test  = series.iloc[-cfg["periods"]:]
 
-    # 👉 Build SARIMA model
     print(f"✅ Training SARIMA with order={cfg['order']} and seasonal_order={cfg['seasonal_order']}")
     model = SARIMAX(
         train,
@@ -675,18 +1022,15 @@ def train_sarima(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, fl
     )
     sarima_result = model.fit(disp=False)
 
-    # yForecast
     forecast = sarima_result.forecast(steps=cfg["periods"])
 
-    #  Metrics
     y_true = test.values
     y_pred = forecast.values
 
-    mae   = mean_absolute_error(y_true, y_pred)
-    rmse  = mean_squared_error(y_true, y_pred) ** 0.5
+    mae = mean_absolute_error(y_true, y_pred)
+    rmse = mean_squared_error(y_true, y_pred) ** 0.5
     wmape = _compute_wmape(y_true, y_pred)
 
-    # Log to MLflow
     with mlflow.start_run(run_name="SARIMA", nested=True):
         mlflow.log_params({
             "order": cfg["order"],
@@ -699,21 +1043,43 @@ def train_sarima(df_features: pd.DataFrame, cfg: dict) -> tuple[float, float, fl
             "sarima_WMAPE": wmape
         })
 
+        # Future forecast → 90 days
+        forecast_90 = sarima_result.forecast(steps=90)
+        preds_90 = forecast_90.values
+
+        # Combined Plot
+        import matplotlib.pyplot as plt
+        fig, ax1 = plt.subplots(figsize=(14, 7))
+
+        # Test set
+        ax1.plot(range(len(y_true)), y_true, label="Actual", color="blue", linewidth=2)
+        ax1.plot(range(len(y_pred)), y_pred, label="Forecast", color="orange", linewidth=2)
+
+        # 90d
+        ax1.plot(range(len(y_true), len(y_true) + len(preds_90)),
+                 preds_90, marker='o', linestyle='-', color='green', linewidth=2, label="SARIMA 90d Recursive Forecast")
+
+        ax1.set_xlabel("Time Step (Test + Future)", fontsize=12)
+        ax1.set_ylabel("Target / Predicted Occupancy", fontsize=12)
+        ax1.set_title("SARIMA — Test Forecast vs Actual AND Recursive 90-Day Forecast Combined", fontsize=14)
+        ax1.grid(alpha=0.3)
+        ax1.legend(loc="best", fontsize=12)
+
+        combined_plot_path = "data/06_models/sarima_combined_forecast.png"
+        plt.savefig(combined_plot_path, bbox_inches='tight')
+        mlflow.log_artifact(combined_plot_path)
+
         # Save SARIMA model
         os.makedirs("data/06_models", exist_ok=True)
         sarima_path = "data/06_models/sarima_model.pkl"
         with open(sarima_path, "wb") as f:
             pickle.dump(sarima_result, f)
+
         print(f"✅ Saved SARIMA model to {sarima_path}")
-
-    print(f"✅ SARIMA → MAE: {mae:.2f}, RMSE: {rmse:.2f}, WMAPE: {wmape:.4f}")
-    plot_path = "data/06_models/sarima_forecast.png"
-    plot_forecast_vs_actual(y_true, y_pred, title="SARIMA Forecast vs Actual", save_path=plot_path)
-    mlflow.log_artifact(plot_path)
-
+        print(f"✅ SARIMA → MAE: {mae:.2f}, RMSE: {rmse:.2f}, WMAPE: {wmape:.4f}")
 
     return mae, rmse, wmape
- 
+
 
 
 # ──────────────────────────────────────────────

@@ -17,7 +17,7 @@ def objective_lstm(trial, arr, features_list, scaler, space, seed):
         "hidden_dim": trial.suggest_categorical("hidden_dim", space["hidden_dim"]),
         "num_layers": trial.suggest_int("num_layers", space["num_layers"][0], space["num_layers"][1]),
         "lr": trial.suggest_float("lr", space["lr"][0], space["lr"][1], log=True),
-        "epochs": 10,  # preview only
+        "epochs": 10, 
         "batch_size": trial.suggest_categorical("batch_size", space["batch_size"]),
         "window_size": trial.suggest_int("window_size", space["window_size"][0], space["window_size"][1]),
         "horizon": trial.suggest_int("horizon", space["horizon"][0], space["horizon"][1]),
@@ -29,9 +29,9 @@ def objective_lstm(trial, arr, features_list, scaler, space, seed):
     save_model_path = f"data/06_models/lstm_trial_{trial.number}.pt"
 
     mae, rmse, wmape = train_lstm(
-        X_train, y_train, X_test, y_test, cfg, scaler, seed=seed,
-        save_model_path=save_model_path
-    )
+    X_train, y_train, X_test, y_test, cfg, scaler, arr, seed=seed, save_model_path=save_model_path
+)
+
 
     mse = rmse ** 2
 
@@ -62,7 +62,7 @@ def objective_transformer(trial, arr, features_list, scaler, space, seed):
 
     # RUN TRAINING
     mae, rmse, wmape = train_transformer(
-        X_train, y_train, X_test, y_test, cfg, scaler, seed=seed,
+        X_train, y_train, X_test, y_test, cfg, scaler, arr, seed=seed,
         save_model_path=save_model_path
     )
 
@@ -95,9 +95,9 @@ def objective_gru(trial, arr, features_list, scaler, space, seed):
 
     # RUN TRAINING
     mae, rmse, wmape = train_gru(
-        X_train, y_train, X_test, y_test, cfg, scaler, seed=seed,
-        save_model_path=save_model_path
-    )
+    X_train, y_train, X_test, y_test, cfg, scaler, arr, seed=seed, save_model_path=save_model_path
+)
+
 
     # COMPUTE MSE → this is the objective!
     mse = rmse ** 2
