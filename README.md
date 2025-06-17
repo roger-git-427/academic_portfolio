@@ -18,9 +18,9 @@ This repository contains a curated portfolio of academic and applied data scienc
 
 ## 🛠️ Technologies Used
 
-- **Languages**: Python, JavaScript, SQL, C++, R, MATLAB  
+- **Languages used**: Python, JavaScript, SQL.
 - **Libraries**: PyTorch, TensorFlow, Keras, Scikit-Learn, NumPy, Pandas  
-- **Tools**: Kedro, MLflow, Docker, Looker Studio, Power BI  
+- **Tools**: Kedro, MLflow, Docker, Looker Studio.
 - **Frameworks**: Express.js, Dash  
 - **Platforms**: Azure, MongoDB
 
