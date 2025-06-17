@@ -1,0 +1,15 @@
+ID_canal,Canal_cve,Canal_nombre
+0,|,SIN DEFINIR
+1,"00    ","LADA 800 NACIONAL68                               "
+2,"01    ","LADA 800 NACIONAL06                               "
+3,"02    ","LADA 800 INTERNACIONAL                            "
+4,"03    ","DIRECTO                                           "
+5,"04    ","CONMUTADOR                                        "
+6,"05    ","NINGUNO                                           "
+7,"06    ","INTERNET                                          "
+8,"07    ","FAX                                               "
+9,"08    ","DIRECTO HOTEL                                     "
+10,"09    ",MULTIVACACIONES 2
+11,"10    ",MULTIVACACIONES 1
+12,"11    ","SITIO PROPIO                                      "
+13,"12    ","VERTICAL BOOKING                                  "

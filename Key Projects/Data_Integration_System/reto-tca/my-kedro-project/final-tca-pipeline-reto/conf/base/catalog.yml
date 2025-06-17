@@ -1,0 +1,188 @@
+# conf/base/catalog.yml
+
+# ──────────────────────────────────────────────────────────────
+# RAW INPUTS
+# ──────────────────────────────────────────────────────────────
+raw_reservaciones:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/reservaciones_tcabdfront2.csv
+
+raw_reservaciones_inference:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/reservaciones_inference.csv
+
+raw_canales:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/iar_canales.csv
+
+raw_empresas:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/iar_empresas.csv
+
+raw_agencias:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/iar_Agencias.csv
+
+raw_estatus_reservaciones:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/iar_estatus_reservaciones.csv
+
+# ──────────────────────────────────────────────────────────────
+# INTERMEDIATE & FEATURE
+# ──────────────────────────────────────────────────────────────
+reservations_base:
+  type: pandas.CSVDataset
+  filepath: data/02_intermediate/reservations_base.csv
+
+reservations_merged:
+  type: pandas.CSVDataset
+  filepath: data/02_intermediate/reservations_merged.csv
+
+reservations_dates:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/reservations_dates.parquet
+
+reservations_typed:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/reservations_typed.parquet
+
+reservations_city_norm:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/reservations_city_norm.parquet
+
+reservations_grouped:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/reservations_grouped.parquet
+
+reservations_filtered:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/reservations_filtered.parquet
+
+reservations_iqr:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/reservations_iqr.parquet
+
+rooms_by_date:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/rooms_by_date.parquet
+
+df_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/df_features.parquet
+
+# ──────────────────────────────────────────────────────────────
+# MODELING OUTPUTS: SCALER
+# ──────────────────────────────────────────────────────────────
+scaler:
+  type: pickle.PickleDataset
+  filepath: data/06_models/scaler.pkl
+
+# ──────────────────────────────────────────────────────────────
+# MODELING METRICS (ALL MODELS)
+# ──────────────────────────────────────────────────────────────
+transformer_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_MAE
+
+transformer_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_RMSE
+
+transformer_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: transformer_WMAPE
+
+gru_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_MAE
+
+gru_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_RMSE
+
+gru_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: gru_WMAPE
+
+lstm_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: lstm_MAE
+
+lstm_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: lstm_RMSE
+
+lstm_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: lstm_WMAPE
+
+prophet_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_MAE
+
+prophet_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_RMSE
+
+prophet_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: prophet_WMAPE
+
+sarima_mae:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: sarima_MAE
+
+sarima_rmse:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: sarima_RMSE
+
+sarima_wmape:
+  type: kedro_mlflow.io.metrics.MlflowMetricDataset
+  key: sarima_WMAPE
+
+# ──────────────────────────────────────────────────────────────
+# MLflow‐TRACKED MODELS
+# ──────────────────────────────────────────────────────────────
+transformer_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: transformer_model_pytorch
+
+gru_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: gru_model_pytorch
+
+lstm_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.pytorch
+  artifact_path: lstm_model_pytorch
+
+prophet_model:
+  type: kedro_mlflow.io.models.MlflowModelTrackingDataset
+  flavor: mlflow.prophet
+  artifact_path: prophet_model_pytorch
+
+
+# ──────────────────────────────────────────────────────────────
+# LOCAL PICKLES (for quick loading)
+# ──────────────────────────────────────────────────────────────
+transformer_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/transformer_model.pkl
+
+gru_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/gru_model.pkl
+
+lstm_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/lstm_model.pkl
+
+prophet_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/prophet_model.pkl
+
+sarima_model_pickle:
+  type: pickle.PickleDataset
+  filepath: data/06_models/sarima_model.pkl

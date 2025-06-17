@@ -1,0 +1,21 @@
+[project]
+name = "inference-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "asyncio>=3.4.3",
+    "asyncpg>=0.30.0",
+    "fastapi[standard]>=0.115.12",
+    "holidays>=0.74",
+    "httpx>=0.28.1",
+    "pandas>=2.2.3",
+    "prophet>=1.1.7",
+    "psycopg2-binary>=2.9.10",
+    "pydantic>=2.11.5",
+    "pydantic-settings>=2.9.1",
+    "scikit-learn>=1.6.1",
+    "sqlalchemy>=2.0.41",
+    "uvicorn>=0.34.3",
+]

@@ -1,0 +1,1 @@
+from .repositories import load_data_from_db

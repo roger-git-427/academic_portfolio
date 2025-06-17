@@ -1,0 +1,7 @@
+batch_size: 64
+d_model: 256
+horizon: 1
+lr: 0.00012671376515351296
+nhead: 16
+num_layers: 3
+window_size: 47
