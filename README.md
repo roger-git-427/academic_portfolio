@@ -10,7 +10,7 @@ This repository contains a curated portfolio of academic and applied data scienc
 - **Intelligent_Shelf_Monitoring/**  
   Hackathon project with FEMSA using YOLOv6 to detect misaligned items on OXXO shelves. Integrated MongoDB data pipelines and prompt-based LLM classification assistance.
 
-- **GovTech_Data_Integration_System/**  
+- **Data_Integration_System/**  
   Developed for the Secretaría de Igualdad e Inclusión in Nuevo León, this system automates data flow using Express.js, Google Sheets API, and Looker Studio dashboards.
 
 - **Hotel_Occupancy_Forecasting_Pipeline/**  
